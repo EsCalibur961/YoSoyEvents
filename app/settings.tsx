@@ -23,6 +23,7 @@ import {
 } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import { db } from "../firebase";
+import { hashPassword } from "../utils/hash";
 
 type TeacherUser = {
   id: string;
@@ -138,7 +139,12 @@ export default function SettingsScreen() {
       setLoading(true);
 
       if (role === "admin") {
-        if (currentPassword !== adminPassword) {
+        const isAdminPasswordHashed = adminPassword.length === 64;
+        const isPasswordCorrect = isAdminPasswordHashed
+          ? hashPassword(currentPassword.trim()) === adminPassword
+          : currentPassword.trim() === adminPassword;
+
+        if (!isPasswordCorrect) {
           setLoading(false);
           Alert.alert("Password errata", "La password attuale non è corretta.");
           return;
@@ -147,7 +153,7 @@ export default function SettingsScreen() {
         await setDoc(
           doc(db, "settings", "adminAuth"),
           {
-            password: newPassword,
+            password: hashPassword(newPassword.trim()),
             updatedAt: serverTimestamp(),
           },
           { merge: true },
@@ -171,14 +177,19 @@ export default function SettingsScreen() {
         return;
       }
 
-      if (currentPassword !== currentTeacher.password) {
+      const isTeacherPasswordHashed = currentTeacher.password?.length === 64;
+      const isTeacherPasswordCorrect = isTeacherPasswordHashed
+        ? hashPassword(currentPassword.trim()) === currentTeacher.password
+        : currentPassword.trim() === currentTeacher.password;
+
+      if (!isTeacherPasswordCorrect) {
         setLoading(false);
         Alert.alert("Password errata", "La password attuale non è corretta.");
         return;
       }
 
       await updateDoc(doc(db, "teachers", idToUpdate), {
-        password: newPassword,
+        password: hashPassword(newPassword.trim()),
         mustChangePassword: false,
         updatedAt: serverTimestamp(),
       });

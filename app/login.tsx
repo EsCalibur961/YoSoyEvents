@@ -26,6 +26,7 @@ import {
 import { useTheme } from "../contexts/ThemeContext";
 import { db } from "../firebase";
 import { registerForPushNotificationsAsync } from "../services/pushNotifications";
+import { hashPassword } from "../utils/hash";
 
 type TeacherUser = {
   id: string;
@@ -77,7 +78,13 @@ export default function LoginScreen() {
       const adminPassword = adminData?.password || "admin";
 
       if (cleanUsername.toLowerCase() === adminUsername.toLowerCase()) {
-        if (cleanPassword !== adminPassword) {
+        const isHashed = adminPassword.length === 64;
+        const hashedInput = hashPassword(cleanPassword);
+        const isPasswordCorrect = isHashed 
+          ? hashedInput === adminPassword 
+          : cleanPassword === adminPassword;
+
+        if (!isPasswordCorrect) {
           setLoading(false);
           Alert.alert("Accesso negato", "Password admin non corretta.");
           return;
@@ -115,7 +122,9 @@ export default function LoginScreen() {
       const foundTeacher = teachers.find(
         (teacher) =>
           teacher.username?.toLowerCase() === cleanUsername.toLowerCase() &&
-          teacher.password === cleanPassword,
+          (teacher.password?.length === 64
+            ? hashPassword(cleanPassword) === teacher.password
+            : cleanPassword === teacher.password),
       );
 
       if (!foundTeacher) {

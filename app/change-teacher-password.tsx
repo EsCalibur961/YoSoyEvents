@@ -16,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
+import { hashPassword } from "../utils/hash";
 
 type TeacherUser = {
   id: number;
@@ -61,7 +62,7 @@ export default function ChangeTeacherPasswordScreen() {
       teacher.username === teacherUsername
         ? {
             ...teacher,
-            password: newPassword,
+            password: hashPassword(newPassword.trim()),
             mustChangePassword: false,
           }
         : teacher,

@@ -24,6 +24,7 @@ import {
 } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import { db } from "../firebase";
+import { hashPassword } from "../utils/hash";
 
 type TeacherUser = {
   id: string;
@@ -159,9 +160,12 @@ Al primo accesso ti verrà chiesto di cambiare password.`;
     }
 
     try {
+      const isAlreadyHashed = password.trim().length === 64;
+      const finalPassword = isAlreadyHashed ? password.trim() : hashPassword(password.trim());
+
       const teacherData = {
         username: username.trim(),
-        password: password.trim(),
+        password: finalPassword,
         initialPassword: initialPassword.trim() || password.trim(),
         firstName: firstName.trim(),
         lastName: lastName.trim(),

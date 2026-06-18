@@ -13,8 +13,9 @@ import {
   TextInput,
   TouchableOpacity,
 } from "react-native";
-import { db } from "../firebase";
 import { useTheme } from "../contexts/ThemeContext";
+import { db } from "../firebase";
+import { hashPassword } from "../utils/hash";
 
 export default function ChangePasswordScreen() {
   const { colors, isDark } = useTheme();
@@ -51,7 +52,7 @@ export default function ChangePasswordScreen() {
       }
 
       await updateDoc(doc(db, "teachers", teacherId), {
-        password: newPassword,
+        password: hashPassword(newPassword.trim()),
         mustChangePassword: false,
       });
 
