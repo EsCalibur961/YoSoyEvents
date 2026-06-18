@@ -6,8 +6,11 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
+  query,
   serverTimestamp,
   updateDoc,
+  where,
 } from "firebase/firestore";
 import { useState } from "react";
 import {
@@ -112,22 +115,31 @@ export default function LoginScreen() {
         return;
       }
 
-      const snapshot = await getDocs(collection(db, "teachers"));
+      const teachersRef = collection(db, "teachers");
+      const q = query(
+        teachersRef,
+        where("username", "==", cleanUsername),
+        limit(1),
+      );
+      const snapshot = await getDocs(q);
 
-      const teachers: TeacherUser[] = snapshot.docs.map((docItem) => ({
+      if (snapshot.empty) {
+        setLoading(false);
+        Alert.alert("Accesso negato", "Username o password non corretti.");
+        return;
+      }
+
+      const docItem = snapshot.docs[0];
+      const foundTeacher: TeacherUser = {
         id: docItem.id,
         ...(docItem.data() as Omit<TeacherUser, "id">),
-      }));
+      };
 
-      const foundTeacher = teachers.find(
-        (teacher) =>
-          teacher.username?.toLowerCase() === cleanUsername.toLowerCase() &&
-          (teacher.password?.length === 64
-            ? hashPassword(cleanPassword) === teacher.password
-            : cleanPassword === teacher.password),
-      );
+      const isPasswordCorrect = foundTeacher.password?.length === 64
+        ? hashPassword(cleanPassword) === foundTeacher.password
+        : cleanPassword === foundTeacher.password;
 
-      if (!foundTeacher) {
+      if (!isPasswordCorrect) {
         setLoading(false);
         Alert.alert("Accesso negato", "Username o password non corretti.");
         return;

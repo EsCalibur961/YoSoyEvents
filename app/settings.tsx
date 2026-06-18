@@ -2,12 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
 import {
-  collection,
   doc,
   onSnapshot,
   serverTimestamp,
   setDoc,
-  updateDoc,
+  updateDoc
 } from "firebase/firestore";
 import { useCallback, useState } from "react";
 import {
@@ -46,7 +45,7 @@ export default function SettingsScreen() {
   const [teacherUsername, setTeacherUsername] = useState<string | null>(null);
   const [teacherId, setTeacherId] = useState<string | null>(null);
 
-  const [teachers, setTeachers] = useState<TeacherUser[]>([]);
+  const [currentTeacher, setCurrentTeacher] = useState<TeacherUser | null>(null);
   const [adminPassword, setAdminPassword] = useState("admin");
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -61,7 +60,34 @@ export default function SettingsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadLocalUser();
+      let unsubTeacher = () => {};
+
+      const loadUserAndSubscribe = async () => {
+        const savedRole = await AsyncStorage.getItem("loggedUser");
+        const savedTeacherUsername = await AsyncStorage.getItem("teacherUsername");
+        const savedTeacherId = await AsyncStorage.getItem("teacherId");
+
+        setRole(savedRole);
+        setTeacherUsername(savedTeacherUsername);
+        setTeacherId(savedTeacherId);
+
+        if (savedRole === "teacher" && savedTeacherId) {
+          unsubTeacher = onSnapshot(
+            doc(db, "teachers", savedTeacherId),
+            (docSnap) => {
+              if (docSnap.exists()) {
+                const teacherData = {
+                  id: docSnap.id,
+                  ...(docSnap.data() as Omit<TeacherUser, "id">),
+                };
+                setCurrentTeacher(teacherData);
+              }
+            },
+          );
+        }
+      };
+
+      loadUserAndSubscribe();
 
       const unsubAdmin = onSnapshot(
         doc(db, "settings", "adminAuth"),
@@ -73,37 +99,11 @@ export default function SettingsScreen() {
         },
       );
 
-      const unsubTeachers = onSnapshot(
-        collection(db, "teachers"),
-        (snapshot) => {
-          const data: TeacherUser[] = snapshot.docs.map((item) => ({
-            id: item.id,
-            ...(item.data() as Omit<TeacherUser, "id">),
-          }));
-
-          setTeachers(data);
-        },
-      );
-
       return () => {
         unsubAdmin();
-        unsubTeachers();
+        unsubTeacher();
       };
     }, []),
-  );
-
-  const loadLocalUser = async () => {
-    const savedRole = await AsyncStorage.getItem("loggedUser");
-    const savedTeacherUsername = await AsyncStorage.getItem("teacherUsername");
-    const savedTeacherId = await AsyncStorage.getItem("teacherId");
-
-    setRole(savedRole);
-    setTeacherUsername(savedTeacherUsername);
-    setTeacherId(savedTeacherId);
-  };
-
-  const currentTeacher = teachers.find(
-    (teacher) => teacher.username === teacherUsername,
   );
 
   const clearForm = () => {
