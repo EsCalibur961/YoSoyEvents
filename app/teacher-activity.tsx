@@ -1,11 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Print from "expo-print";
 import { router, useFocusEffect } from "expo-router";
 import * as Sharing from "expo-sharing";
+import * as XLSX from "xlsx";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { useCallback, useMemo, useState } from "react";
 import {
   Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -43,6 +46,7 @@ type Guest = {
   selectedPackId: string;
   selectedPackLetter: string;
   selectedPackPrice: string;
+  notes?: string;
 };
 
 type RoomData = {
@@ -64,6 +68,7 @@ export default function TeacherActivityScreen() {
   const [roomsData, setRoomsData] = useState<RoomData[]>([]);
   const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null);
   const [loadingPdf, setLoadingPdf] = useState(false);
+  const [loadingExcel, setLoadingExcel] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -118,6 +123,7 @@ export default function TeacherActivityScreen() {
     selectedPackId: guest.selectedPackId || "",
     selectedPackLetter: guest.selectedPackLetter || "",
     selectedPackPrice: guest.selectedPackPrice || "",
+    notes: guest.notes || "",
   });
 
   const normalizeRoom = (room: any): RoomData => ({
@@ -223,6 +229,264 @@ export default function TeacherActivityScreen() {
     const seenRecently = lastSeenMillis > 0 && Date.now() - lastSeenMillis < 90 * 1000;
 
     return Boolean(teacher.isOnline && seenRecently);
+  };
+
+  const sanitizeFileName = (value: string) => {
+    return value
+      .replace(/[\\/:*?"<>|]/g, "-")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  const generateExcel = async () => {
+    if (!selectedTeacher) {
+      Alert.alert("Maestro mancante", "Seleziona prima un maestro.");
+      return;
+    }
+
+    if (completeRooms.length === 0) {
+      Alert.alert(
+        "Nessuna camera",
+        "Questo maestro non ha ancora camere complete da esportare.",
+      );
+      return;
+    }
+
+    try {
+      setLoadingExcel(true);
+
+      const teacherName = getTeacherName(selectedTeacher);
+      const teacherSchool = getTeacherSchool(selectedTeacher);
+      const exportDate = new Date();
+
+      const sheetRows: any[][] = [];
+
+      sheetRows.push(["YO SOY EVENTS"]);
+      sheetRows.push(["Lista camere maestro"]);
+      sheetRows.push([]);
+      sheetRows.push(["Maestro", teacherName]);
+      sheetRows.push(["Scuola", teacherSchool]);
+      sheetRows.push(["Data esportazione", exportDate.toLocaleString("it-IT")]);
+      sheetRows.push(["Camere complete", completedRoomsCount]);
+      sheetRows.push(["Ospiti inseriti", totalGuests]);
+      sheetRows.push(["Pack selezionati", totalPacks]);
+      sheetRows.push([]);
+
+      roomTypes.forEach((type) => {
+        const roomsByType = completeRooms
+          .filter((room) => room.roomType === type)
+          .sort((a, b) => {
+            const labelCompare = getRoomLabel(a).localeCompare(getRoomLabel(b));
+            if (labelCompare !== 0) return labelCompare;
+            return a.roomIndex - b.roomIndex;
+          });
+
+        if (roomsByType.length === 0) return;
+
+        sheetRows.push([type.toUpperCase()]);
+        sheetRows.push([]);
+
+        roomsByType.forEach((room) => {
+          const completeGuests = room.guests.filter((guest) =>
+            isGuestComplete(guest),
+          );
+
+          if (completeGuests.length === 0) return;
+
+          sheetRows.push([getRoomLabel(room)]);
+          sheetRows.push([
+            "#",
+            "Nome",
+            "Cognome",
+            "Data nascita",
+            "Luogo nascita",
+            "Pack",
+            "Prezzo",
+            "Note / Allergie / Esigenze",
+          ]);
+
+          completeGuests.forEach((guest, index) => {
+            sheetRows.push([
+              index + 1,
+              guest.firstName || "",
+              guest.lastName || "",
+              guest.birthDate || "",
+              guest.birthPlace || "",
+              guest.selectedPackLetter
+                ? `Pack ${guest.selectedPackLetter}`
+                : "",
+              guest.selectedPackPrice || "",
+              guest.notes || "",
+            ]);
+          });
+
+          sheetRows.push([]);
+        });
+
+        sheetRows.push([]);
+      });
+
+      const worksheet = XLSX.utils.aoa_to_sheet(sheetRows);
+
+      worksheet["!cols"] = [
+        { wch: 6 },
+        { wch: 18 },
+        { wch: 18 },
+        { wch: 16 },
+        { wch: 22 },
+        { wch: 14 },
+        { wch: 12 },
+        { wch: 36 },
+      ];
+
+      worksheet["!merges"] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+      ];
+
+      const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1:H1");
+
+      for (let row = range.s.r; row <= range.e.r; row++) {
+        const firstCellAddress = XLSX.utils.encode_cell({ r: row, c: 0 });
+        const firstCell = worksheet[firstCellAddress];
+        const firstValue = firstCell?.v ? String(firstCell.v) : "";
+
+        const isMainTitle = row === 0;
+        const isSubTitle = row === 1;
+        const isRoomType = roomTypes
+          .map((type) => type.toUpperCase())
+          .includes(firstValue);
+        const isRoomTitle =
+          firstValue &&
+          row > 9 &&
+          !["#", "Maestro", "Scuola", "Data esportazione", "Camere complete", "Ospiti inseriti", "Pack selezionati"].includes(firstValue) &&
+          !isRoomType &&
+          !sheetRows[row]?.[1] &&
+          !sheetRows[row]?.[2];
+
+        for (let col = range.s.c; col <= range.e.c; col++) {
+          const address = XLSX.utils.encode_cell({ r: row, c: col });
+          const cell = worksheet[address];
+
+          if (!cell) continue;
+
+          cell.s = {
+            font: {
+              bold:
+                isMainTitle ||
+                isSubTitle ||
+                isRoomType ||
+                isRoomTitle ||
+                firstValue === "#" ||
+                sheetRows[row]?.[0] === "#",
+              sz: isMainTitle ? 18 : isSubTitle ? 14 : isRoomType ? 14 : 11,
+              color: { rgb: isRoomType || isMainTitle ? "FFFFFF" : "111111" },
+            },
+            alignment: {
+              vertical: "center",
+              horizontal:
+                isMainTitle || isSubTitle || isRoomType ? "center" : "left",
+              wrapText: true,
+            },
+            fill:
+              isMainTitle || isSubTitle
+                ? { fgColor: { rgb: "061A36" } }
+                : isRoomType
+                  ? { fgColor: { rgb: "0B3A75" } }
+                  : isRoomTitle
+                    ? { fgColor: { rgb: "D9B44A" } }
+                    : sheetRows[row]?.[0] === "#"
+                      ? { fgColor: { rgb: "E8EEF8" } }
+                      : undefined,
+            border: {
+              top: { style: "thin", color: { rgb: "CCCCCC" } },
+              bottom: { style: "thin", color: { rgb: "CCCCCC" } },
+              left: { style: "thin", color: { rgb: "CCCCCC" } },
+              right: { style: "thin", color: { rgb: "CCCCCC" } },
+            },
+          };
+        }
+      }
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Camere maestro");
+
+      const base64 = XLSX.write(workbook, {
+        type: "base64",
+        bookType: "xlsx",
+      });
+
+      const dateForFile = exportDate.toISOString().slice(0, 10);
+      const fileName = sanitizeFileName(
+        `${teacherName}-camere-struttura-${dateForFile}.xlsx`,
+      );
+
+      const directory = FileSystem.documentDirectory || FileSystem.cacheDirectory;
+
+      if (!directory) {
+        Alert.alert(
+          "Errore Excel",
+          "Cartella temporanea non disponibile. Aggiorna la build dell’app.",
+        );
+        return;
+      }
+
+      const fileUri = `${directory}${fileName}`;
+
+      await FileSystem.writeAsStringAsync(fileUri, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      const mimeType =
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+      if (
+        Platform.OS === "android" &&
+        FileSystem.StorageAccessFramework?.requestDirectoryPermissionsAsync
+      ) {
+        const permissions =
+          await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+
+        if (!permissions.granted) {
+          Alert.alert(
+            "Salvataggio annullato",
+            "Non hai selezionato una cartella. Il file Excel non è stato scaricato.",
+          );
+          return;
+        }
+
+        const downloadUri =
+          await FileSystem.StorageAccessFramework.createFileAsync(
+            permissions.directoryUri,
+            fileName,
+            mimeType,
+          );
+
+        await FileSystem.writeAsStringAsync(downloadUri, base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        Alert.alert(
+          "Excel scaricato",
+          "Il file Excel è stato salvato nella cartella selezionata.",
+        );
+
+        return;
+      }
+
+      await Sharing.shareAsync(fileUri, {
+        mimeType,
+        dialogTitle: "Salva Excel camere strutture",
+        UTI: "com.microsoft.excel.xlsx",
+      });
+    } catch (error: any) {
+      Alert.alert(
+        "Errore Excel",
+        String(error?.message || "Non è stato possibile generare il file Excel."),
+      );
+    } finally {
+      setLoadingExcel(false);
+    }
   };
 
   const generatePdf = async () => {
@@ -389,6 +653,7 @@ export default function TeacherActivityScreen() {
                   <th>Data nascita</th>
                   <th>Luogo nascita</th>
                   <th>Pack</th>
+                  <th>Note</th>
                 </tr>
           `;
 
@@ -401,6 +666,7 @@ export default function TeacherActivityScreen() {
                 <td>${guest.birthDate || "-"}</td>
                 <td>${guest.birthPlace || "-"}</td>
                 <td>Pack ${guest.selectedPackLetter} - €${guest.selectedPackPrice}</td>
+                <td>${guest.notes || "-"}</td>
               </tr>
             `;
         });
@@ -575,7 +841,7 @@ export default function TeacherActivityScreen() {
             <TouchableOpacity
               style={[styles.pdfButton, loadingPdf && styles.pdfButtonDisabled]}
               onPress={generatePdf}
-              disabled={loadingPdf}
+              disabled={loadingPdf || loadingExcel}
             >
               <Ionicons
                 name={
@@ -589,6 +855,27 @@ export default function TeacherActivityScreen() {
                 {loadingPdf
                   ? "Generazione PDF..."
                   : "Esporta PDF maestro selezionato"}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.excelButton,
+                loadingExcel && styles.pdfButtonDisabled,
+              ]}
+              onPress={generateExcel}
+              disabled={loadingPdf || loadingExcel}
+            >
+              <Ionicons
+                name={loadingExcel ? "hourglass-outline" : "grid-outline"}
+                size={24}
+                color={colors.text}
+              />
+
+              <Text style={styles.pdfButtonText}>
+                {loadingExcel
+                  ? "Generazione Excel..."
+                  : "Scarica Excel per strutture"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -801,6 +1088,16 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  excelButton: {
+    backgroundColor: colors.success,
+    borderRadius: 22,
+    paddingVertical: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 12,
   },
 
   pdfButtonDisabled: {

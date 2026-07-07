@@ -4,13 +4,13 @@ import { router, useFocusEffect } from "expo-router";
 import { collection, onSnapshot } from "firebase/firestore";
 import { useCallback, useMemo, useState } from "react";
 import {
-  Image,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { Image } from "expo-image";
 import { db } from "../../firebase";
 import { useTheme } from "../../contexts/ThemeContext";
 
@@ -30,6 +30,15 @@ type EventItem = {
   location?: string;
   image?: string;
   packs?: EventPack[];
+};
+
+type ArtistItem = {
+  id: string;
+  name?: string;
+  description?: string;
+  instagram?: string;
+  image?: string;
+  isVisible?: boolean;
 };
 
 type TeacherUser = {
@@ -66,12 +75,14 @@ export default function HomeScreen() {
   const styles = createStyles(colors, isDark);
   const [role, setRole] = useState<string | null>(null);
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [artists, setArtists] = useState<ArtistItem[]>([]);
   const [teachers, setTeachers] = useState<TeacherUser[]>([]);
   const [roomsData, setRoomsData] = useState<RoomData[]>([]);
 
   useFocusEffect(
     useCallback(() => {
       let unsubEvents: (() => void) | null = null;
+      let unsubArtists: (() => void) | null = null;
       let unsubTeachers: (() => void) | null = null;
       let unsubRooms: (() => void) | null = null;
 
@@ -85,6 +96,15 @@ export default function HomeScreen() {
           }));
 
           setEvents(data);
+        });
+
+        unsubArtists = onSnapshot(collection(db, "artists"), (snapshot) => {
+          const data: ArtistItem[] = snapshot.docs.map((item) => ({
+            id: item.id,
+            ...(item.data() as Omit<ArtistItem, "id">),
+          }));
+
+          setArtists(data);
         });
 
         unsubTeachers = onSnapshot(collection(db, "teachers"), (snapshot) => {
@@ -106,12 +126,14 @@ export default function HomeScreen() {
         });
       } catch {
         setEvents([]);
+        setArtists([]);
         setTeachers([]);
         setRoomsData([]);
       }
 
       return () => {
         if (unsubEvents) unsubEvents();
+        if (unsubArtists) unsubArtists();
         if (unsubTeachers) unsubTeachers();
         if (unsubRooms) unsubRooms();
       };
@@ -170,12 +192,31 @@ export default function HomeScreen() {
   };
 
   const onlineTeachers = useMemo(() => {
-    return teachers.filter((teacher) => Boolean(teacher.isOnline));
+    const now = Date.now();
+
+    return teachers.filter((teacher) => {
+      if (!teacher.isOnline) return false;
+
+      const lastSeen = getLastSeenDate(teacher.lastSeen);
+
+      if (!lastSeen) return false;
+
+      return now - lastSeen.getTime() < 90 * 1000;
+    });
   }, [teachers]);
 
   const offlineTeachers = useMemo(() => {
+    const now = Date.now();
+
     return teachers
-      .filter((teacher) => !teacher.isOnline)
+      .filter((teacher) => {
+        const lastSeen = getLastSeenDate(teacher.lastSeen);
+
+        if (!teacher.isOnline) return true;
+        if (!lastSeen) return true;
+
+        return now - lastSeen.getTime() >= 90 * 1000;
+      })
       .sort((a, b) => {
         const aTime = getLastSeenDate(a.lastSeen)?.getTime() || 0;
         const bTime = getLastSeenDate(b.lastSeen)?.getTime() || 0;
@@ -244,10 +285,12 @@ export default function HomeScreen() {
     );
   };
 
-  const normalizedRooms = roomsData.map((room) => ({
-    ...room,
-    guests: Array.isArray(room.guests) ? room.guests : [],
-  }));
+  const normalizedRooms = useMemo(() => {
+    return roomsData.map((room) => ({
+      ...room,
+      guests: Array.isArray(room.guests) ? room.guests : [],
+    }));
+  }, [roomsData]);
 
   const completedRooms = normalizedRooms.filter(
     (room) =>
@@ -265,6 +308,12 @@ export default function HomeScreen() {
     );
   }, 0);
 
+  const visibleArtists = useMemo(() => {
+    return artists
+      .filter((artist) => artist.isVisible !== false)
+      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  }, [artists]);
+
   const totalAmount = normalizedRooms.reduce((sum, room) => {
     return (
       sum +
@@ -278,6 +327,10 @@ export default function HomeScreen() {
     );
   }, 0);
 
+  const onlineTeacherIds = useMemo(() => {
+    return new Set(onlineTeachers.map((teacher) => teacher.id));
+  }, [onlineTeachers]);
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -287,6 +340,8 @@ export default function HomeScreen() {
       <Image
         source={require("../../assets/images/logo.png")}
         style={styles.homeLogo}
+        contentFit="contain"
+        transition={0}
       />
 
       <Text style={[styles.welcome, { color: colors.secondary }]}>
@@ -305,8 +360,11 @@ export default function HomeScreen() {
         >
           {nextEvent.image ? (
             <Image
-              source={{ uri: nextEvent.image }}
+              source={nextEvent.image}
               style={styles.eventImage}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={0}
             />
           ) : null}
 
@@ -361,6 +419,50 @@ export default function HomeScreen() {
         </View>
       )}
 
+      {visibleArtists.length > 0 ? (
+        <View style={[styles.homeArtistsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.homeArtistsHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.homeArtistsTitle, { color: colors.text }]}>Artisti presenti</Text>
+              <Text style={[styles.homeArtistsSubtitle, { color: colors.secondary }]}>
+                Gli ospiti pubblicati dall’admin.
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.homeArtistsButton, { backgroundColor: colors.primaryDark }]}
+              onPress={() => router.push("/artists")}
+            >
+              <Text style={styles.homeArtistsButtonText}>Apri</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.homeArtistsList}>
+            {visibleArtists.slice(0, 6).map((artist) => (
+              <TouchableOpacity key={artist.id} style={styles.homeArtistItem} onPress={() => router.push("/artists")}>
+                {artist.image ? (
+                  <Image
+                    source={artist.image}
+                    style={styles.homeArtistImage}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    transition={0}
+                  />
+                ) : (
+                  <View style={[styles.homeArtistPlaceholder, { backgroundColor: colors.cardAlt }]}>
+                    <Ionicons name="person-outline" size={26} color={colors.muted} />
+                  </View>
+                )}
+
+                <Text numberOfLines={1} style={[styles.homeArtistName, { color: colors.text }]}>
+                  {artist.name || "Artista"}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+
       {role === "admin" ? (
         <>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Riepilogo gestionale</Text>
@@ -397,7 +499,11 @@ export default function HomeScreen() {
                   <View
                     style={[
                       styles.presenceDot,
-                      { backgroundColor: teacher.isOnline ? colors.success : colors.danger },
+                      {
+                        backgroundColor: onlineTeacherIds.has(teacher.id)
+                          ? colors.success
+                          : colors.danger,
+                      },
                     ]}
                   />
 
@@ -413,10 +519,16 @@ export default function HomeScreen() {
                     <Text
                       style={[
                         styles.teacherPresenceStatus,
-                        { color: teacher.isOnline ? colors.success : colors.warning },
+                        {
+                          color: onlineTeacherIds.has(teacher.id)
+                            ? colors.success
+                            : colors.warning,
+                        },
                       ]}
                     >
-                      {teacher.isOnline ? "Online adesso" : formatLastSeen(teacher.lastSeen)}
+                      {onlineTeacherIds.has(teacher.id)
+                        ? "Online adesso"
+                        : formatLastSeen(teacher.lastSeen)}
                     </Text>
                   </View>
                 </View>
@@ -662,6 +774,33 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     fontSize: 16,
     fontWeight: "900",
   },
+
+  homeArtistsCard: {
+    backgroundColor: colors.card,
+    borderRadius: 26,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+
+  homeArtistsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 14,
+  },
+
+  homeArtistsTitle: { color: colors.text, fontSize: 22, fontWeight: "900" },
+  homeArtistsSubtitle: { color: colors.secondary, fontSize: 13, fontWeight: "800", marginTop: 4 },
+  homeArtistsButton: { backgroundColor: colors.primaryDark, borderRadius: 15, paddingVertical: 10, paddingHorizontal: 16 },
+  homeArtistsButtonText: { color: colors.onPrimary, fontSize: 13, fontWeight: "900" },
+  homeArtistsList: { gap: 12, paddingRight: 4 },
+  homeArtistItem: { width: 96 },
+  homeArtistImage: { width: 96, height: 105, borderRadius: 18, backgroundColor: colors.background, marginBottom: 8 },
+  homeArtistPlaceholder: { width: 96, height: 105, borderRadius: 18, alignItems: "center", justifyContent: "center", marginBottom: 8 },
+  homeArtistName: { color: colors.text, fontSize: 12, fontWeight: "900", textAlign: "center" },
 
   sectionTitle: {
     color: colors.text,

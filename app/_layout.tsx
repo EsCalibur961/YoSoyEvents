@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack } from "expo-router";
 import * as Updates from "expo-updates";
 import { addDoc, collection, doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, AppState, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
 import { ThemeProvider } from "../contexts/ThemeContext";
@@ -27,7 +27,7 @@ const shouldNotifyOnline = (lastOnlineNotificationAt: any) => {
   return Date.now() - lastDate.getTime() > 10 * 60 * 1000;
 };
 
-const updateTeacherPresence = async (isOnline: boolean) => {
+const updateTeacherPresence = async (isOnline: boolean, notifyAdmin = true) => {
   try {
     const loggedUser = await AsyncStorage.getItem("loggedUser");
     const teacherId = await AsyncStorage.getItem("teacherId");
@@ -35,17 +35,25 @@ const updateTeacherPresence = async (isOnline: boolean) => {
     if (loggedUser !== "teacher" || !teacherId) return;
 
     const teacherRef = doc(db, "teachers", teacherId);
+
+    if (!isOnline || !notifyAdmin) {
+      await updateDoc(teacherRef, {
+        isOnline,
+        lastSeen: serverTimestamp(),
+      });
+
+      return;
+    }
+
     const teacherSnap = await getDoc(teacherRef);
     const teacherData = teacherSnap.exists() ? teacherSnap.data() : null;
     const wasOnline = Boolean(teacherData?.isOnline);
 
     const shouldNotifyAdmin =
-      isOnline &&
-      !wasOnline &&
-      shouldNotifyOnline(teacherData?.lastOnlineNotificationAt);
+      !wasOnline && shouldNotifyOnline(teacherData?.lastOnlineNotificationAt);
 
     await updateDoc(teacherRef, {
-      isOnline,
+      isOnline: true,
       lastSeen: serverTimestamp(),
       ...(shouldNotifyAdmin ? { lastOnlineNotificationAt: serverTimestamp() } : {}),
     });
@@ -83,6 +91,7 @@ const updateTeacherPresence = async (isOnline: boolean) => {
 export default function RootLayout() {
   const [loadingConnection, setLoadingConnection] = useState(true);
   const [isConnected, setIsConnected] = useState(true);
+  const appStateRef = useRef(AppState.currentState);
 
   const checkConnection = async () => {
     try {
@@ -129,13 +138,19 @@ export default function RootLayout() {
       setLoadingConnection(false);
     });
 
-    updateTeacherPresence(true);
-
-    const interval = setInterval(() => {
+    if (AppState.currentState === "active") {
       updateTeacherPresence(true);
-    }, 30000);
+    }
+
+    const heartbeatInterval = setInterval(() => {
+      if (appStateRef.current === "active") {
+        updateTeacherPresence(true, false);
+      }
+    }, 90000);
 
     const subscription = AppState.addEventListener("change", (state) => {
+      appStateRef.current = state;
+
       if (state === "active") {
         checkConnection();
         updateTeacherPresence(true);
@@ -145,7 +160,8 @@ export default function RootLayout() {
     });
 
     return () => {
-      clearInterval(interval);
+      clearInterval(heartbeatInterval);
+      updateTeacherPresence(false);
       subscription.remove();
       netInfoSubscription();
     };

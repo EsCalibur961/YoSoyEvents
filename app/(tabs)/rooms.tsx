@@ -728,7 +728,7 @@ export default function RoomsScreen() {
     saveTimers.current[room.id] = setTimeout(async () => {
       await saveRoomToFirebase(room);
       await flushRoomChangeRequestsForRoom(room.id);
-    }, 1500);
+    }, 2500);
   };
 
   const updateRoomName = (room: RoomData, value: string) => {

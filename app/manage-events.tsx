@@ -29,6 +29,17 @@ import {
 } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import { db, storage } from "../firebase";
+import { sendPushNotificationsToRoleAsync } from "../services/pushNotifications";
+
+type ArtistItem = {
+  id: string;
+  name?: string;
+  description?: string;
+  instagram?: string;
+  image?: string;
+  imagePath?: string;
+  isVisible?: boolean;
+};
 
 type Pack = {
   id: string;
@@ -56,6 +67,7 @@ export default function ManageEventsScreen() {
   const { colors, isDark } = useTheme();
   const styles = createStyles(colors, isDark);
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [artists, setArtists] = useState<ArtistItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
@@ -66,6 +78,15 @@ export default function ManageEventsScreen() {
 
   const [image, setImage] = useState("");
   const [imagePath, setImagePath] = useState("");
+
+  const [artistName, setArtistName] = useState("");
+  const [artistDescription, setArtistDescription] = useState("");
+  const [artistInstagram, setArtistInstagram] = useState("");
+  const [artistImage, setArtistImage] = useState("");
+  const [artistImagePreviewUri, setArtistImagePreviewUri] = useState("");
+  const [artistImagePath, setArtistImagePath] = useState("");
+  const [editingArtistId, setEditingArtistId] = useState<string | null>(null);
+  const [uploadingArtistImage, setUploadingArtistImage] = useState(false);
 
   const [packs, setPacks] = useState<Pack[]>([]);
   const [packLetter, setPackLetter] = useState("");
@@ -80,7 +101,7 @@ export default function ManageEventsScreen() {
   const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(
+    const unsubscribeEvents = onSnapshot(
       collection(db, "events"),
       (snapshot) => {
         const data: EventItem[] = snapshot.docs.map((item) => ({
@@ -95,7 +116,25 @@ export default function ManageEventsScreen() {
       },
     );
 
-    return unsubscribe;
+    const unsubscribeArtists = onSnapshot(
+      collection(db, "artists"),
+      (snapshot) => {
+        const data: ArtistItem[] = snapshot.docs.map((item) => ({
+          id: item.id,
+          ...(item.data() as Omit<ArtistItem, "id">),
+        }));
+
+        setArtists(data);
+      },
+      () => {
+        setArtists([]);
+      },
+    );
+
+    return () => {
+      unsubscribeEvents();
+      unsubscribeArtists();
+    };
   }, []);
 
   const createNotification = async (
@@ -108,9 +147,42 @@ export default function ManageEventsScreen() {
       message: notificationMessage,
       type: "event",
       eventId: eventId || "",
+      targetRole: "all",
       createdAt: new Date().toLocaleString("it-IT"),
       createdAtServer: serverTimestamp(),
     });
+  };
+
+  const createArtistNotification = async (
+    artistId: string,
+    artistNameValue: string,
+  ) => {
+    const notificationTitle = "Nuovo artista aggiunto 🎧";
+    const notificationMessage = `${artistNameValue} sarà presente all’evento. Tocca per scoprire di più.`;
+
+    await addDoc(collection(db, "notifications"), {
+      title: notificationTitle,
+      message: notificationMessage,
+      type: "artist",
+      artistId,
+      targetRole: "all",
+      route: "/artists",
+      createdAt: new Date().toLocaleString("it-IT"),
+      createdAtServer: serverTimestamp(),
+    });
+
+    await Promise.all([
+      sendPushNotificationsToRoleAsync("teacher", notificationTitle, notificationMessage, {
+        type: "artist",
+        artistId,
+        route: "/artists",
+      }),
+      sendPushNotificationsToRoleAsync("admin", notificationTitle, notificationMessage, {
+        type: "artist",
+        artistId,
+        route: "/artists",
+      }),
+    ]);
   };
 
   const uploadImageToStorage = async (uri: string) => {
@@ -186,6 +258,185 @@ export default function ManageEventsScreen() {
 
     if (!result.canceled) {
       setImage(result.assets[0].uri);
+    }
+  };
+
+
+  const pickArtistImage = async () => {
+    try {
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync(false);
+
+      if (!permission.granted) {
+        Alert.alert(
+          "Permesso negato",
+          "Devi autorizzare l’accesso alle immagini.",
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.8,
+        allowsEditing: true,
+      });
+
+      if (result.canceled || !result.assets?.[0]?.uri) {
+        return;
+      }
+
+      const selectedUri = result.assets[0].uri;
+      const uploaded = await uploadArtistImageToStorage(selectedUri);
+
+      if (!uploaded?.url) {
+        return;
+      }
+
+      setArtistImage(uploaded.url);
+      setArtistImagePreviewUri(uploaded.url);
+      setArtistImagePath(uploaded.path || "");
+    } catch (error: any) {
+      setUploadingArtistImage(false);
+      Alert.alert(
+        "Errore foto",
+        String(error?.message || "Non è stato possibile caricare la foto."),
+      );
+    }
+  };
+
+  const uploadArtistImageToStorage = async (uri: string) => {
+    if (!uri) return null;
+
+    if (uri.startsWith("http")) {
+      return { url: uri, path: artistImagePath };
+    }
+
+    try {
+      setUploadingArtistImage(true);
+
+      const response = await fetch(uri);
+      const blob = await response.blob();
+
+      const filePath = `artists/${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2)}.jpg`;
+
+      const imageRef = ref(storage, filePath);
+      await uploadBytes(imageRef, blob);
+
+      const downloadUrl = await getDownloadURL(imageRef);
+      setUploadingArtistImage(false);
+
+      return { url: downloadUrl, path: filePath };
+    } catch {
+      setUploadingArtistImage(false);
+      Alert.alert("Errore immagine", "Non è stato possibile caricare la foto artista.");
+      return null;
+    }
+  };
+
+  const resetArtistForm = () => {
+    setEditingArtistId(null);
+    setArtistName("");
+    setArtistDescription("");
+    setArtistInstagram("");
+    setArtistImage("");
+    setArtistImagePreviewUri("");
+    setArtistImagePath("");
+  };
+
+  const saveArtist = async () => {
+    if (!artistName.trim()) {
+      Alert.alert("Nome mancante", "Inserisci il nome dell’artista.");
+      return;
+    }
+
+    if (!editingArtistId && !artistImage.trim()) {
+      Alert.alert("Foto mancante", "Carica una foto dell’artista prima di pubblicarlo.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const oldArtist = artists.find((artist) => artist.id === editingArtistId);
+      const uploaded = artistImage ? await uploadArtistImageToStorage(artistImage) : null;
+
+      if (artistImage && !uploaded) {
+        setLoading(false);
+        return;
+      }
+
+      const artistData = {
+        name: artistName.trim(),
+        description: artistDescription.trim(),
+        instagram: artistInstagram.trim().replace("https://instagram.com/", "").replace("@", ""),
+        image: uploaded?.url || oldArtist?.image || "",
+        imagePath: uploaded?.path || oldArtist?.imagePath || "",
+        isVisible: true,
+        updatedAt: serverTimestamp(),
+      };
+
+      if (editingArtistId) {
+        await updateDoc(doc(db, "artists", editingArtistId), artistData);
+        await deleteOldImageIfNeeded(oldArtist?.imagePath || "", uploaded?.path || "");
+      } else {
+        const artistRef = await addDoc(collection(db, "artists"), {
+          ...artistData,
+          createdAt: serverTimestamp(),
+        });
+
+        await createArtistNotification(artistRef.id, artistName.trim());
+      }
+
+      setLoading(false);
+      resetArtistForm();
+      Alert.alert("Artista salvato", "L’artista è stato pubblicato live.");
+    } catch (error: any) {
+      setLoading(false);
+      Alert.alert(
+        "Errore",
+        String(error?.message || "Non è stato possibile salvare l’artista."),
+      );
+    }
+  };
+
+  const startEditArtist = (artist: ArtistItem) => {
+    setEditingArtistId(artist.id);
+    setArtistName(artist.name || "");
+    setArtistDescription(artist.description || "");
+    setArtistInstagram(artist.instagram || "");
+    setArtistImage(artist.image || "");
+    setArtistImagePreviewUri(artist.image || "");
+    setArtistImagePath(artist.imagePath || "");
+  };
+
+  const toggleArtistVisibility = async (artist: ArtistItem) => {
+    try {
+      await updateDoc(doc(db, "artists", artist.id), {
+        isVisible: artist.isVisible === false,
+        updatedAt: serverTimestamp(),
+      });
+    } catch {
+      Alert.alert("Errore", "Non è stato possibile aggiornare la visibilità.");
+    }
+  };
+
+  const deleteArtist = async (artist: ArtistItem) => {
+    try {
+      await deleteDoc(doc(db, "artists", artist.id));
+
+      if (artist.imagePath) {
+        try {
+          await deleteObject(ref(storage, artist.imagePath));
+        } catch {}
+      }
+
+      if (editingArtistId === artist.id) resetArtistForm();
+
+      Alert.alert("Artista eliminato", "Artista eliminato correttamente.");
+    } catch {
+      Alert.alert("Errore", "Non è stato possibile eliminare l’artista.");
     }
   };
 
@@ -644,6 +895,141 @@ export default function ManageEventsScreen() {
         ) : null}
       </View>
 
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>
+          {editingArtistId ? "Modifica artista" : "Gestione artisti"}
+        </Text>
+
+        <Text style={styles.artistHelpText}>
+          Carica artisti, DJ e ospiti da mostrare live nella sezione Esplora.
+        </Text>
+
+        <TextInput
+          style={styles.input}
+          placeholder="Nome artista"
+          placeholderTextColor={colors.placeholder}
+          value={artistName}
+          onChangeText={setArtistName}
+        />
+
+        <TextInput
+          style={styles.input}
+          placeholder="Instagram es. djdamasco"
+          placeholderTextColor={colors.placeholder}
+          value={artistInstagram}
+          onChangeText={setArtistInstagram}
+          autoCapitalize="none"
+        />
+
+        <TextInput
+          style={[styles.input, styles.textAreaSmall]}
+          placeholder="Descrizione artista"
+          placeholderTextColor={colors.placeholder}
+          value={artistDescription}
+          onChangeText={setArtistDescription}
+          multiline
+        />
+
+        <TouchableOpacity
+          style={styles.imageButton}
+          onPress={pickArtistImage}
+          disabled={uploadingArtistImage || loading}
+        >
+          <Ionicons name="image-outline" size={22} color={colors.text} />
+
+          <Text style={styles.imageButtonText}>
+            {uploadingArtistImage
+              ? "Caricamento foto..."
+              : artistImage
+                ? "Cambia foto artista"
+                : "Carica foto artista"}
+          </Text>
+        </TouchableOpacity>
+
+        {artistImagePreviewUri || artistImage ? (
+          <Image
+            source={{ uri: artistImagePreviewUri || artistImage }}
+            style={styles.preview}
+            resizeMode="cover"
+          />
+        ) : null}
+
+        <TouchableOpacity
+          style={[styles.saveButton, loading && styles.saveButtonDisabled]}
+          onPress={saveArtist}
+          disabled={loading || uploadingArtistImage}
+        >
+          <Ionicons
+            name={editingArtistId ? "save-outline" : "add-outline"}
+            size={22}
+            color={colors.text}
+          />
+
+          <Text style={styles.saveButtonText}>
+            {editingArtistId ? "Salva artista" : "Pubblica artista"}
+          </Text>
+        </TouchableOpacity>
+
+        {editingArtistId ? (
+          <TouchableOpacity style={styles.cancelButton} onPress={resetArtistForm}>
+            <Text style={styles.cancelButtonText}>Annulla modifica artista</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      <Text style={styles.sectionTitle}>Artisti pubblicati</Text>
+
+      {artists.length === 0 ? (
+        <View style={styles.emptyBox}>
+          <Ionicons name="musical-notes-outline" size={50} color={colors.secondary} />
+          <Text style={styles.emptyTitle}>Nessun artista</Text>
+          <Text style={styles.emptyText}>Gli artisti pubblicati compariranno qui.</Text>
+        </View>
+      ) : (
+        artists.map((artist) => (
+          <View key={artist.id} style={styles.eventCard}>
+            {artist.image ? (
+              <Image source={{ uri: artist.image }} style={styles.eventImage} />
+            ) : null}
+
+            <Text style={styles.eventTitle}>{artist.name || "Artista senza nome"}</Text>
+
+            {artist.instagram ? (
+              <Text style={styles.eventLocation}>Instagram: @{artist.instagram}</Text>
+            ) : null}
+
+            <Text style={styles.eventDescription}>
+              {artist.description || "Nessuna descrizione."}
+            </Text>
+
+            <View style={styles.actions}>
+              <TouchableOpacity style={styles.editButton} onPress={() => startEditArtist(artist)}>
+                <Ionicons name="create-outline" size={22} color={colors.text} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.editButton,
+                  { backgroundColor: artist.isVisible === false ? colors.warning : colors.success },
+                ]}
+                onPress={() => toggleArtistVisibility(artist)}
+              >
+                <Ionicons
+                  name={artist.isVisible === false ? "eye-off-outline" : "eye-outline"}
+                  size={22}
+                  color={colors.text}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.deleteButton} onPress={() => deleteArtist(artist)}>
+                <Ionicons name="trash-outline" size={22} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))
+      )}
+
       <Text style={styles.sectionTitle}>Eventi pubblicati</Text>
 
       {events.length === 0 ? (
@@ -765,6 +1151,14 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 24,
       fontWeight: "900",
       marginBottom: 18,
+    },
+
+    artistHelpText: {
+      color: colors.secondary,
+      fontSize: 15,
+      lineHeight: 22,
+      marginBottom: 16,
+      fontWeight: "700",
     },
 
     sectionTitle: {

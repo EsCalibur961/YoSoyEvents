@@ -4,13 +4,13 @@ import { router, useFocusEffect } from "expo-router";
 import { collection, onSnapshot } from "firebase/firestore";
 import { useCallback, useMemo, useState } from "react";
 import {
-  Image,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { Image } from "expo-image";
 import { useTheme } from "../../contexts/ThemeContext";
 import { db } from "../../firebase";
 
@@ -32,6 +32,15 @@ type EventItem = {
   packs?: EventPack[];
 };
 
+type ArtistItem = {
+  id: string;
+  name?: string;
+  description?: string;
+  instagram?: string;
+  image?: string;
+  isVisible?: boolean;
+};
+
 type AppNotification = {
   id: string;
 };
@@ -50,6 +59,7 @@ export default function EventsScreen() {
   const [teacherUsername, setTeacherUsername] = useState<string | null>(null);
 
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [artists, setArtists] = useState<ArtistItem[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [reads, setReads] = useState<NotificationRead[]>([]);
 
@@ -58,6 +68,7 @@ export default function EventsScreen() {
       loadUser();
 
       let unsubEvents: (() => void) | null = null;
+      let unsubArtists: (() => void) | null = null;
       let unsubNotifications: (() => void) | null = null;
       let unsubReads: (() => void) | null = null;
 
@@ -69,6 +80,15 @@ export default function EventsScreen() {
           }));
 
           setEvents(data);
+        });
+
+        unsubArtists = onSnapshot(collection(db, "artists"), (snapshot) => {
+          const data: ArtistItem[] = snapshot.docs.map((item) => ({
+            id: item.id,
+            ...(item.data() as Omit<ArtistItem, "id">),
+          }));
+
+          setArtists(data);
         });
 
         unsubNotifications = onSnapshot(
@@ -95,12 +115,14 @@ export default function EventsScreen() {
         );
       } catch {
         setEvents([]);
+        setArtists([]);
         setNotifications([]);
         setReads([]);
       }
 
       return () => {
         if (unsubEvents) unsubEvents();
+        if (unsubArtists) unsubArtists();
         if (unsubNotifications) unsubNotifications();
         if (unsubReads) unsubReads();
       };
@@ -158,6 +180,12 @@ export default function EventsScreen() {
     );
   }, [events]);
 
+  const visibleArtists = useMemo(() => {
+    return artists
+      .filter((artist) => artist.isVisible !== false)
+      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  }, [artists]);
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -193,6 +221,52 @@ export default function EventsScreen() {
         </TouchableOpacity>
       </View>
 
+      <View style={[styles.artistsSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={styles.artistsHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.artistsTitle, { color: colors.text }]}>Artisti dell’evento</Text>
+            <Text style={[styles.artistsSubtitle, { color: colors.secondary }]}>
+              DJ, artisti e ospiti pubblicati dall’admin.
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.artistsButton, { backgroundColor: colors.primaryDark }]}
+            onPress={() => router.push("/artists")}
+          >
+            <Text style={styles.artistsButtonText}>Vedi tutti</Text>
+          </TouchableOpacity>
+        </View>
+
+        {visibleArtists.length === 0 ? (
+          <Text style={[styles.emptyArtistText, { color: colors.secondary }]}>Nessun artista pubblicato.</Text>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.artistsList}>
+            {visibleArtists.slice(0, 8).map((artist) => (
+              <TouchableOpacity key={artist.id} style={styles.artistMiniCard} onPress={() => router.push("/artists")}>
+                {artist.image ? (
+                  <Image
+                    source={artist.image}
+                    style={styles.artistMiniImage}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    transition={0}
+                  />
+                ) : (
+                  <View style={[styles.artistMiniPlaceholder, { backgroundColor: colors.cardAlt, borderColor: colors.border }]}>
+                    <Ionicons name="person-outline" size={28} color={colors.muted} />
+                  </View>
+                )}
+
+                <Text numberOfLines={1} style={[styles.artistMiniName, { color: colors.text }]}>
+                  {artist.name || "Artista"}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+      </View>
+
       {sortedEvents.length === 0 ? (
         <View
           style={[
@@ -226,7 +300,13 @@ export default function EventsScreen() {
             }
           >
             {event.image ? (
-              <Image source={{ uri: event.image }} style={styles.eventImage} />
+              <Image
+                source={event.image}
+                style={styles.eventImage}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={0}
+              />
             ) : (
               <View
                 style={[
@@ -368,6 +448,42 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 11,
       fontWeight: "900",
     },
+
+    artistsSection: {
+      backgroundColor: colors.card,
+      borderRadius: 28,
+      padding: 16,
+      marginBottom: 22,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+
+    artistsHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: 12,
+      marginBottom: 14,
+    },
+
+    artistsTitle: { color: colors.text, fontSize: 22, fontWeight: "900" },
+    artistsSubtitle: { color: colors.secondary, fontSize: 13, fontWeight: "800", marginTop: 4 },
+    artistsButton: { backgroundColor: colors.primary, borderRadius: 15, paddingVertical: 10, paddingHorizontal: 13 },
+    artistsButtonText: { color: colors.onPrimary, fontSize: 12, fontWeight: "900" },
+    artistsList: { gap: 12, paddingRight: 4 },
+    artistMiniCard: { width: 110 },
+    artistMiniImage: { width: 110, height: 120, borderRadius: 18, backgroundColor: colors.background, marginBottom: 8 },
+    artistMiniPlaceholder: {
+      width: 110,
+      height: 120,
+      borderRadius: 18,
+      borderWidth: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 8,
+    },
+    artistMiniName: { color: colors.text, fontSize: 13, fontWeight: "900", textAlign: "center" },
+    emptyArtistText: { color: colors.secondary, fontSize: 14, fontWeight: "800", textAlign: "center", paddingVertical: 10 },
 
     eventCard: {
       backgroundColor: colors.card,
