@@ -1,0 +1,34 @@
+YoSoyEvents Modern V5 Stable
+
+Stabilizzazione applicata senza cambiare il design V5.
+
+Interventi:
+- Blocco anti-sovrapposizione degli aggiornamenti presenza maestro.
+- KPI Home memoizzati dove possibile.
+- Autosave camere protetto da errori e timer ripuliti.
+- Listener notificationDeletes reso più resiliente dove compatibile.
+- Nessuna modifica intenzionale a Firebase schema, dati o flussi business.
+- Restyling V5 mantenuto.
+
+Dipendenze rilevate:
+- expo: ~54.0.35
+- expo-updates: ~29.0.18
+- expo-image: ~3.0.11
+- xlsx: ^0.18.5
+- expo-file-system: ~19.0.23
+- expo-sharing: ~14.0.8
+
+Test consigliati prima della pubblicazione:
+1. npm install
+2. npx expo-doctor
+3. npx expo start -c
+4. Tema chiaro/scuro
+5. Login admin + maestro
+6. Home e online/offline
+7. Salvataggio camere
+8. Notifiche: elimina singola + elimina tutte
+9. Artisti
+10. Export PDF/Excel su dispositivo reale
+
+Dopo i test:
+eas update --branch production --message "YoSoyEvents Modern V5 Stable"

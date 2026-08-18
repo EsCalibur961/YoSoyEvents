@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "534651781819",
+    "project_id": "yosoy-events",
+    "storage_bucket": "yosoy-events.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:534651781819:android:ac125ac3e0812f9311df9e",
+        "android_client_info": {
+          "package_name": "com.luke9612.YoSoyEvents"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDZ3rWgXluMwP9fg55L2Z3Kx0h8ZXI9DVo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

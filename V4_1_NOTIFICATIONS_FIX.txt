@@ -1,0 +1,13 @@
+YoSoyEvents Modern V4.1 - Fix notifiche
+
+Correzioni:
+- Il badge del Profilo ora esclude le notifiche eliminate.
+- Profilo ascolta anche la collection notificationDeletes.
+- Eliminazione singola ottimistica: la notifica sparisce subito.
+- Eliminazione di tutte le notifiche ottimistica.
+- Se Firestore rifiuta la scrittura, viene mostrato l'errore reale invece di non fare nulla.
+- Restyling e contrasto V4 restano invariati.
+
+Se dopo questo fix compare:
+"Missing or insufficient permissions"
+allora vanno aggiornate le Firestore Rules per notificationDeletes.
