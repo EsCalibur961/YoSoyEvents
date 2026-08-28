@@ -15,11 +15,12 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
-import { useTheme } from "../contexts/ThemeContext";
-import { useFeedback } from "../contexts/FeedbackContext";
-import { db } from "../firebase";
+import { useTheme } from "../../contexts/ThemeContext";
+import { useFeedback } from "../../contexts/FeedbackContext";
+import { db } from "../../firebase";
 
 type RoomType = "Doppia" | "Tripla" | "Quadrupla";
 
@@ -59,10 +60,11 @@ type TeacherPrivatePayment = {
 
 const roomTypes: RoomType[] = ["Doppia", "Tripla", "Quadrupla"];
 
-export default function AdminTeacherPaymentsScreen() {
+export default function AdminWebPaymentsScreen() {
   const { colors, isDark } = useTheme();
-  const { success, error, warning, info, confirm } = useFeedback();
-  const styles = createStyles(colors, isDark);
+  const { width } = useWindowDimensions();
+  const { success, error, warning } = useFeedback();
+  const styles = createStyles(colors, isDark, width < 700);
   const [teachers, setTeachers] = useState<TeacherUser[]>([]);
   const [roomsData, setRoomsData] = useState<RoomData[]>([]);
   const [privatePayments, setPrivatePayments] = useState<
@@ -331,9 +333,9 @@ export default function AdminTeacherPaymentsScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.replace("/admin-web")}>
         <Ionicons name="chevron-back-outline" size={24} color={colors.text} />
-        <Text style={styles.backText}>Indietro</Text>
+        <Text style={styles.backText}>Dashboard Web</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>Pagamenti maestri</Text>
@@ -654,7 +656,7 @@ export default function AdminTeacherPaymentsScreen() {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) =>
+const createStyles = (colors: any, isDark: boolean, isMobile: boolean) =>
   StyleSheet.create({
     container: {
       flex: 1,
@@ -755,6 +757,8 @@ const createStyles = (colors: any, isDark: boolean) =>
 
     teacherSearchInput: {
       flex: 1,
+      height: "100%",
+      minHeight: 42,
       color: colors.text,
       fontSize: 12,
       fontWeight: "700",
@@ -867,7 +871,7 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     paymentAmountsRow: {
-      flexDirection: "row",
+      flexDirection: isMobile ? "column" : "row",
       alignItems: "center",
       marginTop: 10,
     },
@@ -1166,7 +1170,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       borderRadius: 16,
       padding: 12,
       marginBottom: 10,
-      flexDirection: "row",
+      flexDirection: isMobile ? "column" : "row",
       alignItems: "center",
       justifyContent: "space-between",
     },

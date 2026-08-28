@@ -8,10 +8,11 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
-import { useTheme } from "../contexts/ThemeContext";
-import { db } from "../firebase";
+import { useTheme } from "../../../contexts/ThemeContext";
+import { db } from "../../../firebase";
 
 type RoomChangeRequest = {
   id: string;
@@ -34,6 +35,7 @@ const requestTypeLabel = (type?: string) => {
   if (type === "room_name_updated") return "Nome camera modificato";
   if (type === "guest_moved") return "Spostamento ospite";
   if (type === "guest_pack_updated") return "Pack modificato";
+  if (type === "guest_stay_dates_updated") return "Giorni permanenza modificati";
   if (type === "guest_updated") return "Nominativo modificato";
   if (type === "guest_added") return "Nuovo nominativo";
   if (type === "guest_cleared") return "Nominativo rimosso";
@@ -52,9 +54,10 @@ const formatGuestName = (guest?: any) => {
   return name || "Non inserito";
 };
 
-export default function MyRoomRequestsScreen() {
+export default function TeacherWebRequestsScreen() {
   const { colors, isDark } = useTheme();
-  const styles = createStyles(colors, isDark);
+  const { width } = useWindowDimensions();
+  const styles = createStyles(colors, isDark, width < 700);
   const [teacherUsername, setTeacherUsername] = useState<string | null>(null);
   const [requests, setRequests] = useState<RoomChangeRequest[]>([]);
 
@@ -166,15 +169,44 @@ export default function MyRoomRequestsScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Ionicons name="chevron-back-outline" size={24} color={colors.text} />
-        <Text style={styles.backText}>Indietro</Text>
-      </TouchableOpacity>
+      <View style={styles.webHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.webEyebrow}>YO SOY EVENTS / WEB MAESTRO</Text>
+          <Text style={styles.title}>Le mie richieste</Text>
+          <Text style={styles.subtitle}>
+            Modifiche inviate all’admin e stato di approvazione.
+          </Text>
+        </View>
 
-      <Text style={styles.title}>Le mie richieste</Text>
-      <Text style={styles.subtitle}>
-        Qui vedi le modifiche camera inviate all’admin e il loro stato.
-      </Text>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.replace("/web/teacher")}
+        >
+          <Ionicons name="home-outline" size={19} color={colors.primary} />
+          <Text style={[styles.backText, { color: colors.primary }]}>Home maestro</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.summaryRow}>
+        <View style={styles.summaryCard}>
+          <Text style={[styles.summaryValue, { color: colors.warning }]}>
+            {myRequests.filter((item) => (item.status || "pending") === "pending").length}
+          </Text>
+          <Text style={styles.summaryLabel}>In attesa</Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={[styles.summaryValue, { color: colors.success }]}>
+            {myRequests.filter((item) => item.status === "approved").length}
+          </Text>
+          <Text style={styles.summaryLabel}>Approvate</Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={[styles.summaryValue, { color: colors.danger }]}>
+            {myRequests.filter((item) => item.status === "rejected").length}
+          </Text>
+          <Text style={styles.summaryLabel}>Rifiutate</Text>
+        </View>
+      </View>
 
       {myRequests.length === 0 ? (
         <View style={styles.emptyBox}>
@@ -222,15 +254,78 @@ export default function MyRoomRequestsScreen() {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) =>
+const createStyles = (colors: any, isDark: boolean, isMobile: boolean) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
-    content: { paddingTop: 34, paddingHorizontal: 22, paddingBottom: 120 },
-    backButton: { flexDirection: "row", alignItems: "center", marginBottom: 24 },
-    backText: { color: colors.text, fontSize: 16, fontWeight: "800", marginLeft: 6 },
+    content: {
+      width: "100%",
+      maxWidth: 1080,
+      alignSelf: "center",
+      paddingTop: 30,
+      paddingHorizontal: isMobile ? 14 : 28,
+      paddingBottom: 90,
+    },
+    webHeader: {
+      flexDirection: isMobile ? "column" : "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      gap: 20,
+      marginBottom: 20,
+    },
+    webEyebrow: {
+      color: colors.primary,
+      fontSize: 9,
+      fontWeight: "900",
+      letterSpacing: 1.2,
+      marginBottom: 6,
+    },
+    backButton: {
+      minHeight: 42,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+      paddingHorizontal: 13,
+      flexDirection: isMobile ? "column" : "row",
+      alignItems: "center",
+    },
+    backText: { fontSize: 9, fontWeight: "900", marginLeft: 6 },
+    summaryRow: {
+      flexDirection: "row",
+      gap: 10,
+      marginBottom: 18,
+    },
+    summaryCard: {
+      flex: 1,
+      minHeight: 82,
+      backgroundColor: colors.card,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 14,
+      justifyContent: "center",
+    },
+    summaryValue: {
+      fontSize: 24,
+      fontWeight: "900",
+    },
+    summaryLabel: {
+      color: colors.secondary,
+      fontSize: 9,
+      fontWeight: "800",
+      marginTop: 3,
+    },
     title: { color: colors.text, fontSize: 31, fontWeight: "900", marginBottom: 8 },
-    subtitle: { color: colors.secondary, fontSize: 16, lineHeight: 23, marginBottom: 22 },
-    requestCard: { backgroundColor: colors.card, borderRadius: 24, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: colors.border },
+    subtitle: { color: colors.secondary, fontSize: 12, lineHeight: 18, marginTop: 5 },
+    requestCard: {
+      width: "100%",
+      backgroundColor: colors.card,
+      borderRadius: 20,
+      padding: 18,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
     requestHeader: { flexDirection: "row", alignItems: "flex-start", marginBottom: 12 },
     requestType: { color: colors.text, fontSize: 18, fontWeight: "900", marginBottom: 4 },
     requestMeta: { color: colors.secondary, fontSize: 13, fontWeight: "800", marginBottom: 2 },

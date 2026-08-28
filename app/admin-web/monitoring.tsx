@@ -7,6 +7,7 @@ import * as XLSX from "xlsx";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { useCallback, useMemo, useState } from "react";
 import {
+  Alert,
   Modal,
   Platform,
   ScrollView,
@@ -14,11 +15,11 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
-import { db } from "../firebase";
-import { useTheme } from "../contexts/ThemeContext";
-import { useFeedback } from "../contexts/FeedbackContext";
+import { db } from "../../firebase";
+import { useTheme } from "../../contexts/ThemeContext";
 
 type RoomType = "Doppia" | "Tripla" | "Quadrupla";
 
@@ -97,10 +98,10 @@ type RoomData = {
 
 const roomTypes: RoomType[] = ["Doppia", "Tripla", "Quadrupla"];
 
-export default function TeacherActivityScreen() {
+export default function AdminWebMonitoringScreen() {
   const { colors, isDark } = useTheme();
-  const { success, error, warning, info } = useFeedback();
-  const styles = createStyles(colors, isDark);
+  const { width } = useWindowDimensions();
+  const styles = createStyles(colors, isDark, width < 700);
   const [activities, setActivities] = useState<TeacherActivity[]>([]);
   const [teachers, setTeachers] = useState<TeacherUser[]>([]);
   const [roomsData, setRoomsData] = useState<RoomData[]>([]);
@@ -373,12 +374,12 @@ export default function TeacherActivityScreen() {
 
   const generateExcel = async () => {
     if (!selectedTeacher) {
-      warning("Maestro mancante", "Seleziona prima un maestro.");
+      Alert.alert("Maestro mancante", "Seleziona prima un maestro.");
       return;
     }
 
     if (completeRooms.length === 0) {
-      info(
+      Alert.alert(
         "Nessuna camera",
         "Questo maestro non ha ancora camere complete da esportare.",
       );
@@ -573,7 +574,6 @@ export default function TeacherActivityScreen() {
         anchor.remove();
 
         setTimeout(() => URL.revokeObjectURL(url), 1000);
-        success("Excel generato", "Il file Excel è stato scaricato correttamente.");
         return;
       }
 
@@ -585,7 +585,7 @@ export default function TeacherActivityScreen() {
       const directory = FileSystem.documentDirectory || FileSystem.cacheDirectory;
 
       if (!directory) {
-        error(
+        Alert.alert(
           "Errore Excel",
           "Cartella temporanea non disponibile. Aggiorna la build dell’app.",
         );
@@ -609,7 +609,7 @@ export default function TeacherActivityScreen() {
           await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
 
         if (!permissions.granted) {
-          info(
+          Alert.alert(
             "Salvataggio annullato",
             "Non hai selezionato una cartella. Il file Excel non è stato scaricato.",
           );
@@ -627,7 +627,7 @@ export default function TeacherActivityScreen() {
           encoding: FileSystem.EncodingType.Base64,
         });
 
-        success(
+        Alert.alert(
           "Excel scaricato",
           "Il file Excel è stato salvato nella cartella selezionata.",
         );
@@ -641,7 +641,7 @@ export default function TeacherActivityScreen() {
         UTI: "com.microsoft.excel.xlsx",
       });
     } catch (error: any) {
-      error(
+      Alert.alert(
         "Errore Excel",
         String(error?.message || "Non è stato possibile generare il file Excel."),
       );
@@ -652,12 +652,12 @@ export default function TeacherActivityScreen() {
 
   const generatePdf = async () => {
     if (!selectedTeacher) {
-      warning("Maestro mancante", "Seleziona prima un maestro.");
+      Alert.alert("Maestro mancante", "Seleziona prima un maestro.");
       return;
     }
 
     if (completeRooms.length === 0) {
-      info(
+      Alert.alert(
         "Nessuna camera",
         "Questo maestro non ha ancora camere complete da esportare.",
       );
@@ -669,7 +669,7 @@ export default function TeacherActivityScreen() {
     } catch (error: any) {
       console.log("ERRORE PDF:", error);
 
-      error("Errore PDF", String(error?.message || error));
+      Alert.alert("Errore PDF", String(error?.message || error));
     } finally {
       setLoadingPdf(false);
     }
@@ -871,28 +871,25 @@ export default function TeacherActivityScreen() {
           printWindow.print();
         };
 
-        success("PDF pronto", "Il documento è stato aperto ed è pronto per la stampa o il salvataggio.");
         return;
       }
 
       const { uri } = await Print.printToFileAsync({ html });
 
       await Sharing.shareAsync(uri);
-      success("PDF generato", "Il documento del maestro è pronto.");
     } catch (error: any) {
       console.log("ERRORE PDF:", error);
 
       if (Platform.OS === "web") {
-        error(
-          "Errore PDF",
+        window.alert(
           String(
             error?.message ||
               "Non è stato possibile aprire il documento PDF.",
           ),
         );
       } else {
-        error(
-          "Errore PDF",
+        Alert.alert(
+          "Errore",
           String(error?.message || "Non è stato possibile generare il PDF."),
         );
       }
@@ -907,9 +904,9 @@ export default function TeacherActivityScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.replace("/admin-web")}>
         <Ionicons name="chevron-back-outline" size={24} color={colors.text} />
-        <Text style={styles.backText}>Indietro</Text>
+        <Text style={styles.backText}>Dashboard Web</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>Monitoraggio maestri</Text>
@@ -1512,7 +1509,7 @@ export default function TeacherActivityScreen() {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean, isMobile: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -1520,7 +1517,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
 
   content: {
     paddingTop: 34,
-    paddingHorizontal: 22,
+    paddingHorizontal: isMobile ? 14 : 22,
     paddingBottom: 120,
   },
 
@@ -1658,11 +1655,13 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
 
   liveStats: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
     marginBottom: 18,
   },
 
   liveStatBox: {
+    flexBasis: isMobile ? "47%" : undefined,
     flex: 1,
     backgroundColor: colors.background,
     borderRadius: 18,
@@ -1687,6 +1686,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
 
   pdfButton: {
+    width: isMobile ? "100%" : undefined,
     backgroundColor: colors.primary,
     borderRadius: 22,
     paddingVertical: 18,
@@ -1696,6 +1696,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
 
   excelButton: {
+    width: isMobile ? "100%" : undefined,
     backgroundColor: colors.success,
     borderRadius: 22,
     paddingVertical: 18,
@@ -1748,7 +1749,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
 
   liveRoomsHeader: {
-    flexDirection: "row",
+    flexDirection: isMobile ? "column" : "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
   },
@@ -1817,7 +1818,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
 
   liveRoomTop: {
-    flexDirection: "row",
+    flexDirection: isMobile ? "column" : "row",
     alignItems: "center",
     marginBottom: 8,
   },
@@ -1848,7 +1849,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
 
   liveGuestRow: {
-    flexDirection: "row",
+    flexDirection: isMobile ? "column" : "row",
     paddingVertical: 9,
   },
 
@@ -1927,7 +1928,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
 
   historyHeader: {
-    flexDirection: "row",
+    flexDirection: isMobile ? "column" : "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
     marginBottom: 10,
@@ -2002,7 +2003,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
 
   activitySummaryRow: {
-    flexDirection: "row",
+    flexDirection: isMobile ? "column" : "row",
     alignItems: "center",
     backgroundColor: colors.card,
     borderRadius: 16,
@@ -2050,7 +2051,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
 
   activityRoomHeader: {
-    flexDirection: "row",
+    flexDirection: isMobile ? "column" : "row",
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 9,
@@ -2082,7 +2083,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
 
   activityGuestRow: {
-    flexDirection: "row",
+    flexDirection: isMobile ? "column" : "row",
     paddingVertical: 10,
   },
 
@@ -2397,7 +2398,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
 
   monitoringHeader: {
-    flexDirection: "row",
+    flexDirection: isMobile ? "column" : "row",
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 14,

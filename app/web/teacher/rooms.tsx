@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import {
   addDoc,
   collection,
@@ -23,12 +23,13 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
-import { useTheme } from "../../contexts/ThemeContext";
-import { useFeedback } from "../../contexts/FeedbackContext";
-import { db } from "../../firebase";
-import { sendPushNotificationsToRoleAsync } from "../../services/pushNotifications";
+import { useTheme } from "../../../contexts/ThemeContext";
+import { useFeedback } from "../../../contexts/FeedbackContext";
+import { db } from "../../../firebase";
+import { sendPushNotificationsToRoleAsync } from "../../../services/pushNotifications";
 
 type RoomType = "Doppia" | "Tripla" | "Quadrupla";
 
@@ -126,10 +127,11 @@ const emptyGuest = (): Guest => ({
   notes: "",
 });
 
-export default function RoomsScreen() {
+export default function TeacherWebRoomsScreen() {
   const { colors, isDark } = useTheme();
+  const { width } = useWindowDimensions();
   const { success, error, warning, info, confirm } = useFeedback();
-  const styles = createStyles(colors, isDark);
+  const styles = createStyles(colors, isDark, width < 700);
   const [role, setRole] = useState<string | null>(null);
   const [teacherUsername, setTeacherUsername] = useState<string | null>(null);
 
@@ -1609,10 +1611,27 @@ export default function RoomsScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={[styles.title, { color: colors.text }]}>Stanze</Text>
-      <Text style={[styles.subtitle, { color: colors.secondary }]}>
-        Gestione camere live con dati ospiti e pack a persona.
-      </Text>
+      <View style={styles.webHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.webEyebrow, { color: colors.primary }]}>
+            YO SOY EVENTS / WEB MAESTRO
+          </Text>
+          <Text style={[styles.title, { color: colors.text }]}>Le tue stanze</Text>
+          <Text style={[styles.subtitle, { color: colors.secondary }]}>
+            Compila ospiti, Pack, permanenza e note usando le stesse regole dell’app.
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.backWebButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => router.replace("/web/teacher")}
+        >
+          <Ionicons name="home-outline" size={18} color={colors.primary} />
+          <Text style={[styles.backWebText, { color: colors.primary }]}>
+            Home maestro
+          </Text>
+        </TouchableOpacity>
+      </View>
       {showMovePanel && movingGuest ? (
         <View
           style={[
@@ -2232,7 +2251,7 @@ export default function RoomsScreen() {
     </ScrollView>
   );
 }
-const createStyles = (colors: any, isDark: boolean) =>
+const createStyles = (colors: any, isDark: boolean, isMobile: boolean) =>
   StyleSheet.create({
     container: {
       flex: 1,
@@ -2240,9 +2259,43 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     content: {
-      paddingHorizontal: 16,
-      paddingTop: 36,
-      paddingBottom: 132,
+      width: "100%",
+      maxWidth: 1280,
+      alignSelf: "center",
+      paddingHorizontal: isMobile ? 14 : 28,
+      paddingTop: 28,
+      paddingBottom: 110,
+    },
+
+    webHeader: {
+      flexDirection: isMobile ? "column" : "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      gap: 20,
+      marginBottom: 4,
+    },
+
+    webEyebrow: {
+      fontSize: 9,
+      fontWeight: "900",
+      letterSpacing: 1.2,
+      marginBottom: 5,
+    },
+
+    backWebButton: {
+      minHeight: 42,
+      borderWidth: 1,
+      borderRadius: 14,
+      paddingHorizontal: 13,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    backWebText: {
+      fontSize: 9,
+      fontWeight: "900",
+      marginLeft: 6,
     },
 
     loadingContainer: {
@@ -2260,22 +2313,23 @@ const createStyles = (colors: any, isDark: boolean) =>
 
     title: {
       color: colors.text,
-      fontSize: 30,
+      fontSize: 32,
       fontWeight: "900",
     },
 
     subtitle: {
       color: colors.secondary,
-      fontSize: 15,
-      lineHeight: 22,
-      marginTop: 10,
-      marginBottom: 22,
+      fontSize: 12,
+      lineHeight: 18,
+      marginTop: 6,
+      marginBottom: 18,
     },
 
     statsCard: {
-      flexDirection: "row",
+      flexDirection: isMobile ? "column" : "row",
       justifyContent: "space-between",
-      marginBottom: 18,
+      gap: 10,
+      marginBottom: 12,
     },
 
     statBox: {
@@ -2283,7 +2337,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       borderRadius: 22,
       paddingVertical: 18,
       alignItems: "center",
-      marginHorizontal: 4,
+      marginHorizontal: 0,
     },
 
     statNumber: {
@@ -2367,16 +2421,16 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     typeSection: {
-      marginBottom: 26,
+      marginBottom: 18,
     },
 
     typeHeader: {
       backgroundColor: colors.cardAlt,
       borderRadius: 22,
       padding: 18,
-      flexDirection: "row",
+      flexDirection: isMobile ? "column" : "row",
       justifyContent: "space-between",
-      alignItems: "center",
+      alignItems: isMobile ? "flex-start" : "center",
     },
 
     typeTitle: {
@@ -2393,16 +2447,17 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     roomCard: {
+      width: "100%",
       backgroundColor: colors.card,
-      borderRadius: 26,
-      padding: 16,
-      marginTop: 14,
+      borderRadius: 22,
+      padding: 18,
+      marginTop: 12,
     },
 
     roomTop: {
-      flexDirection: "row",
+      flexDirection: isMobile ? "column" : "row",
       justifyContent: "space-between",
-      alignItems: "center",
+      alignItems: isMobile ? "stretch" : "center",
       marginBottom: 16,
     },
 
@@ -2419,13 +2474,14 @@ const createStyles = (colors: any, isDark: boolean) =>
 
     roomTopActions: {
       flexDirection: "row",
+      flexWrap: "wrap",
       alignItems: "center",
       gap: 7,
     },
 
     clearRoomButton: {
-      width: 38,
-      height: 38,
+      width: 44,
+      height: 44,
       borderRadius: 12,
       backgroundColor: `${colors.danger}12`,
       borderWidth: 1,
@@ -2511,7 +2567,7 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     stayDateChip: {
-      minHeight: 38,
+      minHeight: 44,
       borderRadius: 12,
       borderWidth: 1,
       paddingHorizontal: 10,
@@ -2542,15 +2598,15 @@ const createStyles = (colors: any, isDark: boolean) =>
 
     guestCard: {
       backgroundColor: colors.cardAlt,
-      borderRadius: 20,
+      borderRadius: 18,
       padding: 16,
-      marginBottom: 16,
+      marginBottom: 14,
     },
 
     guestHeader: {
-      flexDirection: "row",
+      flexDirection: isMobile ? "column" : "row",
       justifyContent: "space-between",
-      alignItems: "center",
+      alignItems: isMobile ? "stretch" : "center",
       marginBottom: 14,
     },
 
@@ -2615,7 +2671,8 @@ const createStyles = (colors: any, isDark: boolean) =>
       borderRadius: 18,
       padding: 16,
       marginTop: 6,
-      flexDirection: "row",
+      flexDirection: isMobile ? "column" : "row",
+      gap: 6,
       justifyContent: "space-between",
     },
 
@@ -2724,10 +2781,11 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     movePanel: {
+      width: "100%",
       backgroundColor: colors.card,
-      borderRadius: 28,
-      padding: 20,
-      marginBottom: 20,
+      borderRadius: 22,
+      padding: 18,
+      marginBottom: 18,
     },
 
     movePanelHeader: {

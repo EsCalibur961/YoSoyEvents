@@ -14,11 +14,12 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
-import { db } from "../firebase";
-import { useTheme } from "../contexts/ThemeContext";
-import { useFeedback } from "../contexts/FeedbackContext";
+import { db } from "../../../firebase";
+import { useTheme } from "../../../contexts/ThemeContext";
+import { useFeedback } from "../../../contexts/FeedbackContext";
 
 type RoomType = "Doppia" | "Tripla" | "Quadrupla";
 
@@ -78,10 +79,11 @@ type BuiltRoom = {
 
 const roomTypes: RoomType[] = ["Doppia", "Tripla", "Quadrupla"];
 
-export default function TeacherPaymentsScreen() {
+export default function TeacherWebPaymentsScreen() {
   const { colors, isDark } = useTheme();
+  const { width } = useWindowDimensions();
   const { success, error, confirm } = useFeedback();
-  const styles = createStyles(colors, isDark);
+  const styles = createStyles(colors, isDark, width < 700);
   const [teacherUsername, setTeacherUsername] = useState<string | null>(null);
   const [assignments, setAssignments] = useState<RoomAssignment[]>([]);
   const [savedRooms, setSavedRooms] = useState<SavedRoom[]>([]);
@@ -321,17 +323,23 @@ export default function TeacherPaymentsScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Ionicons name="chevron-back-outline" size={24} color={colors.text} />
-        <Text style={styles.backText}>Indietro</Text>
-      </TouchableOpacity>
+      <View style={styles.webHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.webEyebrow}>YO SOY EVENTS / WEB MAESTRO</Text>
+          <Text style={styles.title}>Pagamenti</Text>
+          <Text style={styles.subtitle}>
+            Riepilogo delle tue camere complete, importi saldati e ancora da saldare.
+          </Text>
+        </View>
 
-      <Text style={styles.title}>Totale Pagamenti</Text>
-
-      <Text style={styles.subtitle}>
-        Qui compaiono solo le camere complete salvate dal maestro. Spunta le
-        camere saldate: il prezzo resta bloccato al momento del saldo.
-      </Text>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.replace("/web/teacher")}
+        >
+          <Ionicons name="home-outline" size={19} color={colors.primary} />
+          <Text style={[styles.backText, { color: colors.primary }]}>Home maestro</Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.summaryCard}>
         <View style={styles.summaryHeader}>
@@ -506,48 +514,73 @@ export default function TeacherPaymentsScreen() {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) =>
+const createStyles = (colors: any, isDark: boolean, isMobile: boolean) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
 
     content: {
-      paddingTop: 34,
-      paddingHorizontal: 22,
-      paddingBottom: 130,
+      width: "100%",
+      maxWidth: 1120,
+      alignSelf: "center",
+      paddingTop: 30,
+      paddingHorizontal: isMobile ? 14 : 28,
+      paddingBottom: 90,
+    },
+
+    webHeader: {
+      flexDirection: isMobile ? "column" : "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      gap: 20,
+      marginBottom: 20,
+    },
+
+    webEyebrow: {
+      color: colors.primary,
+      fontSize: 9,
+      fontWeight: "900",
+      letterSpacing: 1.2,
+      marginBottom: 6,
     },
 
     backButton: {
+      minHeight: 42,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+      paddingHorizontal: 13,
       flexDirection: "row",
       alignItems: "center",
-      marginBottom: 26,
     },
 
     backText: {
-      color: colors.text,
-      fontSize: 16,
-      fontWeight: "800",
+      fontSize: 9,
+      fontWeight: "900",
       marginLeft: 6,
     },
 
     title: {
       color: colors.text,
-      fontSize: 31,
+      fontSize: 32,
       fontWeight: "900",
-      marginBottom: 10,
+      marginBottom: 5,
     },
 
     subtitle: {
       color: colors.secondary,
-      fontSize: 16,
-      lineHeight: 23,
-      marginBottom: 24,
+      fontSize: 12,
+      lineHeight: 18,
+      marginTop: 4,
     },
 
     summaryCard: {
       backgroundColor: colors.card,
-      borderRadius: 28,
-      padding: 20,
-      marginBottom: 16,
+      borderRadius: 20,
+      padding: 18,
+      marginBottom: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
 
     summaryHeader: {
@@ -596,7 +629,7 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     quickStatsGrid: {
-      flexDirection: "row",
+      flexDirection: isMobile ? "column" : "row",
       gap: 10,
       marginBottom: 18,
     },
@@ -656,9 +689,11 @@ const createStyles = (colors: any, isDark: boolean) =>
 
     typeCard: {
       backgroundColor: colors.card,
-      borderRadius: 28,
+      borderRadius: 20,
       padding: 18,
-      marginBottom: 18,
+      marginBottom: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
 
     typeHeader: {
@@ -696,9 +731,9 @@ const createStyles = (colors: any, isDark: boolean) =>
 
     roomRow: {
       backgroundColor: colors.background,
-      borderRadius: 22,
-      padding: 16,
-      marginBottom: 12,
+      borderRadius: 16,
+      padding: 14,
+      marginBottom: 9,
       borderWidth: 1,
       borderColor: colors.border,
       flexDirection: "row",

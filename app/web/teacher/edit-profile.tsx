@@ -24,11 +24,12 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
-import { useTheme } from "../contexts/ThemeContext";
-import { useFeedback } from "../contexts/FeedbackContext";
-import { db, storage } from "../firebase";
+import { useTheme } from "../../../contexts/ThemeContext";
+import { useFeedback } from "../../../contexts/FeedbackContext";
+import { db, storage } from "../../../firebase";
 
 type AdminProfile = {
   name?: string;
@@ -46,10 +47,11 @@ type TeacherUser = {
   profileImagePath?: string;
 };
 
-export default function EditProfileScreen() {
+export default function TeacherWebEditProfileScreen() {
   const { colors, isDark } = useTheme();
+  const { width } = useWindowDimensions();
   const { success, error, warning, confirm } = useFeedback();
-  const styles = createStyles(colors, isDark);
+  const styles = createStyles(colors, isDark, width < 700);
   const [role, setRole] = useState<string | null>(null);
   const [teacherUsername, setTeacherUsername] = useState<string | null>(null);
   const [teacherId, setTeacherId] = useState<string | null>(null);
@@ -174,11 +176,11 @@ export default function EditProfileScreen() {
         url: downloadUrl,
         path: filePath,
       };
-    } catch (error) {
+    } catch (caughtError) {
       setUploadingImage(false);
 
-      console.log("UPLOAD IMAGE ERROR:", error);
-      error("Errore upload", String((error as any)?.message || error));
+      console.log("UPLOAD IMAGE ERROR:", caughtError);
+      error("Errore upload", String((caughtError as any)?.message || caughtError));
 
       return null;
     }
@@ -247,7 +249,8 @@ export default function EditProfileScreen() {
       }
 
       success("Immagine rimossa", "La foto profilo è stata rimossa.");
-    } catch (error) {
+    } catch (caughtError) {
+      console.log("REMOVE IMAGE ERROR:", caughtError);
       error("Rimozione non riuscita", "Non è stato possibile rimuovere l’immagine.");
     }
   };
@@ -286,7 +289,7 @@ export default function EditProfileScreen() {
         setLoading(false);
 
         success("Foto salvata", "La foto profilo è stata aggiornata correttamente.");
-        setTimeout(() => router.back(), 650);
+        setTimeout(() => router.replace("/web/teacher/profile"), 650);
         return;
       }
 
@@ -316,20 +319,14 @@ export default function EditProfileScreen() {
 
       success("Profilo salvato", "Il profilo admin è stato aggiornato correttamente.");
       setTimeout(() => router.back(), 650);
-    } catch (error) {
+    } catch (caughtError) {
       setLoading(false);
-
+      console.log("SAVE PROFILE ERROR:", caughtError);
       error("Salvataggio non riuscito", "Non è stato possibile salvare il profilo.");
     }
   };
 
-  const title =
-    role === "teacher" ? "Modifica foto profilo" : "Modifica profilo";
 
-  const subtitle =
-    role === "teacher"
-      ? "Carica o modifica la tua foto profilo. Verrà salvata su Firebase Storage."
-      : "Aggiorna nome e immagine admin. Le modifiche saranno live su Firestore e Storage.";
 
   return (
     <ScrollView
@@ -337,14 +334,23 @@ export default function EditProfileScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Ionicons name="chevron-back-outline" size={24} color={colors.text} />
-        <Text style={styles.backText}>Indietro</Text>
-      </TouchableOpacity>
+      <View style={styles.webHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.webEyebrow}>YO SOY EVENTS / WEB MAESTRO</Text>
+          <Text style={styles.title}>Modifica foto profilo</Text>
+          <Text style={styles.subtitle}>
+            Carica, sostituisci o rimuovi la foto del tuo account maestro.
+          </Text>
+        </View>
 
-      <Text style={styles.title}>{title}</Text>
-
-      <Text style={styles.subtitle}>{subtitle}</Text>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.replace("/web/teacher/profile")}
+        >
+          <Ionicons name="person-circle-outline" size={19} color={colors.primary} />
+          <Text style={[styles.backText, { color: colors.primary }]}>Profilo</Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.card}>
         <TouchableOpacity style={styles.avatarBox} onPress={pickImage}>
@@ -402,7 +408,7 @@ export default function EditProfileScreen() {
           </TouchableOpacity>
         ) : null}
 
-        {role !== "teacher" ? (
+        {false ? (
           <>
             <Text style={styles.label}>Nome admin</Text>
 
@@ -455,7 +461,7 @@ export default function EditProfileScreen() {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) =>
+const createStyles = (colors: any, isDark: boolean, isMobile: boolean) =>
   StyleSheet.create({
     container: {
       flex: 1,
@@ -463,42 +469,67 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     content: {
-      paddingTop: 34,
-      paddingHorizontal: 22,
-      paddingBottom: 120,
+      width: "100%",
+      maxWidth: 820,
+      alignSelf: "center",
+      paddingTop: 30,
+      paddingHorizontal: isMobile ? 14 : 28,
+      paddingBottom: 90,
+    },
+
+    webHeader: {
+      flexDirection: isMobile ? "column" : "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      gap: 20,
+      marginBottom: 20,
+    },
+
+    webEyebrow: {
+      color: colors.primary,
+      fontSize: 9,
+      fontWeight: "900",
+      letterSpacing: 1.2,
+      marginBottom: 6,
     },
 
     backButton: {
+      minHeight: 42,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+      paddingHorizontal: 13,
       flexDirection: "row",
       alignItems: "center",
-      marginBottom: 24,
     },
 
     backText: {
-      color: colors.text,
-      fontSize: 16,
-      fontWeight: "800",
+      fontSize: 9,
+      fontWeight: "900",
       marginLeft: 6,
     },
 
     title: {
       color: colors.text,
-      fontSize: 31,
+      fontSize: 32,
       fontWeight: "900",
-      marginBottom: 10,
+      marginBottom: 5,
     },
 
     subtitle: {
       color: colors.secondary,
-      fontSize: 16,
-      lineHeight: 24,
-      marginBottom: 26,
+      fontSize: 12,
+      lineHeight: 18,
+      marginTop: 4,
     },
 
     card: {
       backgroundColor: colors.card,
-      borderRadius: 28,
-      padding: 22,
+      borderRadius: 22,
+      padding: isMobile ? 16 : 24,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
 
     avatarBox: {

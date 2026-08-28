@@ -19,12 +19,13 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
-import { useTheme } from "../contexts/ThemeContext";
-import { useFeedback } from "../contexts/FeedbackContext";
-import { db } from "../firebase";
-import { hashPassword } from "../utils/hash";
+import { useTheme } from "../../contexts/ThemeContext";
+import { useFeedback } from "../../contexts/FeedbackContext";
+import { db } from "../../firebase";
+import { hashPassword } from "../../utils/hash";
 
 type TeacherUser = {
   id: string;
@@ -41,10 +42,11 @@ type TeacherUser = {
   lastSeen?: any;
 };
 
-export default function ManageUsersScreen() {
+export default function AdminWebTeachersScreen() {
   const { colors, isDark } = useTheme();
+  const { width } = useWindowDimensions();
   const { success, error, warning, info, confirm } = useFeedback();
-  const styles = createStyles(colors, isDark);
+  const styles = createStyles(colors, isDark, width < 700);
   const pickWhatsappFromContacts = async () => {
     const { status } = await Contacts.requestPermissionsAsync();
 
@@ -228,7 +230,8 @@ Al primo accesso ti verrà richiesto di cambiare password.`;
         editingId ? "Maestro aggiornato" : "Maestro creato",
         "WhatsApp è stato aperto con le credenziali pronte da inviare.",
       );
-    } catch (error) {
+    } catch (caughtError) {
+      console.log("SAVE TEACHER ERROR:", caughtError);
       error("Salvataggio non riuscito", "Non è stato possibile salvare il maestro.");
     }
   };
@@ -353,16 +356,20 @@ Al primo accesso ti verrà richiesto di cambiare password.`;
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.replace("/admin-web")}>
         <Ionicons name="chevron-back-outline" size={24} color={colors.text} />
-        <Text style={styles.backText}>Indietro</Text>
+        <Text style={styles.backText}>Dashboard Web</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>Gestione utenti</Text>
-
-      <Text style={styles.subtitle}>
-        Crea e gestisci i maestri YoSoy con credenziali e WhatsApp.
-      </Text>
+      <View style={styles.webHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.webEyebrow}>YO SOY EVENTS / ADMIN WEB</Text>
+          <Text style={styles.title}>Gestione maestri</Text>
+          <Text style={styles.subtitle}>
+            Account, credenziali, scuole, WhatsApp e stato online in un’unica schermata.
+          </Text>
+        </View>
+      </View>
 
       {editorOpen ? (
         <View style={styles.formCard}>
@@ -652,7 +659,7 @@ Al primo accesso ti verrà richiesto di cambiare password.`;
     </ScrollView>
   );
 }
-const createStyles = (colors: any, isDark: boolean) =>
+const createStyles = (colors: any, isDark: boolean, isMobile: boolean) =>
   StyleSheet.create({
     container: {
       flex: 1,
@@ -660,9 +667,47 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     content: {
-      paddingTop: 34,
-      paddingHorizontal: 22,
+      width: "100%",
+      maxWidth: 1280,
+      alignSelf: "center",
+      paddingTop: 30,
+      paddingHorizontal: isMobile ? 14 : 32,
       paddingBottom: 120,
+    },
+
+    webHeader: {
+      flexDirection: isMobile ? "column" : "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: 20,
+      marginBottom: 8,
+    },
+
+    webEyebrow: {
+      color: colors.primary,
+      fontSize: 10,
+      fontWeight: "900",
+      letterSpacing: 1.1,
+      marginBottom: 7,
+    },
+
+    mobileViewButton: {
+      minHeight: 42,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+      paddingHorizontal: 13,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    mobileViewText: {
+      color: colors.primary,
+      fontSize: 10,
+      fontWeight: "900",
+      marginLeft: 6,
     },
 
     backButton: {
@@ -693,6 +738,9 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     formCard: {
+      width: "100%",
+      maxWidth: 920,
+      alignSelf: "center",
       backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.border,
@@ -730,7 +778,7 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     passwordRow: {
-      flexDirection: "row",
+      flexDirection: isMobile ? "column" : "row",
       alignItems: "center",
       marginBottom: 18,
     },
@@ -888,7 +936,7 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     listHeader: {
-      flexDirection: "row",
+      flexDirection: isMobile ? "column" : "row",
       alignItems: "flex-start",
       justifyContent: "space-between",
       gap: 12,
@@ -934,6 +982,8 @@ const createStyles = (colors: any, isDark: boolean) =>
 
     teacherSearchInput: {
       flex: 1,
+      height: "100%",
+      minHeight: 42,
       color: colors.text,
       fontSize: 13,
       fontWeight: "700",
@@ -942,6 +992,7 @@ const createStyles = (colors: any, isDark: boolean) =>
 
     teacherFilters: {
       flexDirection: "row",
+      flexWrap: "wrap",
       gap: 7,
       marginBottom: 8,
     },
@@ -981,20 +1032,23 @@ const createStyles = (colors: any, isDark: boolean) =>
 
     compactTeacherCard: {
       minHeight: 76,
+      maxWidth: 980,
+      width: "100%",
+      alignSelf: "center",
       backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: 18,
       padding: 8,
       marginBottom: 8,
-      flexDirection: "row",
+      flexDirection: isMobile ? "column" : "row",
       alignItems: "center",
     },
 
     compactTeacherMain: {
       flex: 1,
       minWidth: 0,
-      flexDirection: "row",
+      flexDirection: isMobile ? "column" : "row",
       alignItems: "center",
     },
 
@@ -1059,13 +1113,16 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     compactActions: {
+      width: isMobile ? "100%" : undefined,
+      flexDirection: "row",
+      justifyContent: isMobile ? "space-between" : "flex-end",
+      gap: 10,
       marginLeft: 7,
-      gap: 4,
     },
 
     compactEditButton: {
-      width: 29,
-      height: 29,
+      width: isMobile ? 44 : 32,
+      height: isMobile ? 44 : 32,
       borderRadius: 9,
       backgroundColor: colors.primary,
       alignItems: "center",
@@ -1073,8 +1130,8 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     compactWhatsappButton: {
-      width: 29,
-      height: 29,
+      width: isMobile ? 44 : 32,
+      height: isMobile ? 44 : 32,
       borderRadius: 9,
       backgroundColor: colors.success,
       alignItems: "center",
@@ -1082,8 +1139,8 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     compactDeleteButton: {
-      width: 29,
-      height: 29,
+      width: isMobile ? 44 : 32,
+      height: isMobile ? 44 : 32,
       borderRadius: 9,
       backgroundColor: colors.danger,
       alignItems: "center",

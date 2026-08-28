@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as Updates from "expo-updates";
 import { addDoc, collection, doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
@@ -6,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, AppState, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
 import { ThemeProvider } from "../contexts/ThemeContext";
+import { FeedbackProvider } from "../contexts/FeedbackContext";
 import { db } from "../firebase";
 import { setupPushNotificationHandler, sendPushNotificationsToRoleAsync } from "../services/pushNotifications";
 
@@ -95,6 +97,13 @@ const updateTeacherPresence = async (isOnline: boolean, notifyAdmin = true) => {
 };
 
 export default function RootLayout() {
+  // Caricamento esplicito di Ionicons:
+  // necessario soprattutto nell'export Web statico/Vercel, dove il font
+  // delle icone può non essere caricato automaticamente.
+  const [fontsLoaded, fontError] = useFonts({
+    Ionicons: require("../assets/fonts/Ionicons.ttf"),
+  });
+
   const [loadingConnection, setLoadingConnection] = useState(true);
   const [isConnected, setIsConnected] = useState(true);
   const appStateRef = useRef(AppState.currentState);
@@ -173,6 +182,25 @@ export default function RootLayout() {
     };
   }, []);
 
+  if (!fontsLoaded && !fontError) {
+    return (
+      <ThemeProvider>
+        <View style={styles.statusContainer}>
+          <Text style={styles.statusLogo}>YoSoy Events</Text>
+          <ActivityIndicator size="large" color="#D9B44A" style={styles.loader} />
+          <Text style={styles.statusTitle}>Caricamento interfaccia...</Text>
+          <Text style={styles.statusText}>
+            Stiamo preparando icone e risorse grafiche.
+          </Text>
+        </View>
+      </ThemeProvider>
+    );
+  }
+
+  if (fontError) {
+    console.log("Errore caricamento font Ionicons:", fontError);
+  }
+
   if (loadingConnection) {
     return (
       <ThemeProvider>
@@ -210,7 +238,9 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <Stack screenOptions={{ headerShown: false }} />
+      <FeedbackProvider>
+        <Stack screenOptions={{ headerShown: false }} />
+      </FeedbackProvider>
     </ThemeProvider>
   );
 }

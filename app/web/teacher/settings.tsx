@@ -17,12 +17,13 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
-import { useTheme } from "../contexts/ThemeContext";
-import { useFeedback } from "../contexts/FeedbackContext";
-import { db } from "../firebase";
-import { hashPassword } from "../utils/hash";
+import { useTheme } from "../../../contexts/ThemeContext";
+import { useFeedback } from "../../../contexts/FeedbackContext";
+import { db } from "../../../firebase";
+import { hashPassword } from "../../../utils/hash";
 
 type TeacherUser = {
   id: string;
@@ -38,10 +39,11 @@ type AdminSettings = {
   password?: string;
 };
 
-export default function SettingsScreen() {
+export default function TeacherWebSettingsScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
+  const { width } = useWindowDimensions();
   const { success, error, warning, confirm } = useFeedback();
-  const styles = createStyles(colors, isDark);
+  const styles = createStyles(colors, isDark, width < 700);
   const [role, setRole] = useState<string | null>(null);
   const [teacherUsername, setTeacherUsername] = useState<string | null>(null);
   const [teacherId, setTeacherId] = useState<string | null>(null);
@@ -196,8 +198,9 @@ export default function SettingsScreen() {
         "Password aggiornata",
         "La tua password è stata modificata. La password originale generata resta visibile solo all’admin.",
       );
-    } catch (error) {
+    } catch (caughtError) {
       setLoading(false);
+      console.log("CHANGE PASSWORD ERROR:", caughtError);
       error("Aggiornamento non riuscito", "Non è stato possibile aggiornare la password.");
     }
   };
@@ -212,7 +215,7 @@ export default function SettingsScreen() {
       "danceSchool",
     ]);
 
-    router.replace("/login");
+    router.replace("/web/login");
   };
 
   return (
@@ -226,19 +229,25 @@ export default function SettingsScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="chevron-back-outline" size={24} color={colors.text} />
-          <Text style={[styles.backText, { color: colors.text }]}>Indietro</Text>
-        </TouchableOpacity>
+        <View style={styles.webHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.webEyebrow, { color: colors.primary }]}>
+              YO SOY EVENTS / WEB MAESTRO
+            </Text>
+            <Text style={[styles.title, { color: colors.text }]}>Impostazioni</Text>
+            <Text style={[styles.subtitle, { color: colors.secondary }]}>
+              Tema, password e sicurezza del tuo account maestro.
+            </Text>
+          </View>
 
-        <Text style={[styles.title, { color: colors.text }]}>Impostazioni</Text>
-
-        <Text style={[styles.subtitle, { color: colors.secondary }]}>
-          Gestisci password e accesso. Le modifiche sono sincronizzate live.
-        </Text>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => router.replace("/web/teacher/profile")}
+          >
+            <Ionicons name="person-circle-outline" size={19} color={colors.primary} />
+            <Text style={[styles.backText, { color: colors.primary }]}>Profilo</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Ionicons
@@ -249,15 +258,13 @@ export default function SettingsScreen() {
 
           <View style={styles.infoTextBox}>
             <Text style={[styles.infoTitle, { color: colors.text }]}>
-              {role === "admin" ? "Account admin" : "Account maestro"}
+              Account maestro
             </Text>
 
             <Text style={[styles.infoText, { color: colors.secondary }]}>
-              {role === "admin"
-                ? "Puoi modificare la password admin."
-                : currentTeacher
-                  ? `${currentTeacher.firstName} ${currentTeacher.lastName} • ${currentTeacher.danceSchool}`
-                  : teacherUsername || "Maestro"}
+              {currentTeacher
+                ? `${currentTeacher.firstName} ${currentTeacher.lastName} • ${currentTeacher.danceSchool}`
+                : teacherUsername || "Maestro"}
             </Text>
           </View>
         </View>
@@ -370,7 +377,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
+        {width >= 700 ? <TouchableOpacity
           style={[styles.logoutButton, { backgroundColor: colors.danger }]}
           onPress={() =>
             confirm({
@@ -385,13 +392,13 @@ export default function SettingsScreen() {
         >
           <Ionicons name="log-out-outline" size={22} color={colors.text} />
           <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean, isMobile: boolean) => StyleSheet.create({
   wrapper: {
     flex: 1,
     backgroundColor: colors.background,
@@ -403,36 +410,56 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
 
   content: {
-    paddingTop: 34,
-    paddingHorizontal: 22,
-    paddingBottom: 120,
+    width: "100%",
+    maxWidth: 920,
+    alignSelf: "center",
+    paddingTop: 30,
+    paddingHorizontal: isMobile ? 14 : 28,
+    paddingBottom: 90,
+  },
+
+  webHeader: {
+    flexDirection: isMobile ? "column" : "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 20,
+    marginBottom: 20,
+  },
+
+  webEyebrow: {
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+    marginBottom: 6,
   },
 
   backButton: {
+    minHeight: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 13,
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 24,
   },
 
   backText: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: "800",
+    fontSize: 9,
+    fontWeight: "900",
     marginLeft: 6,
   },
 
   title: {
     color: colors.text,
-    fontSize: 31,
+    fontSize: 32,
     fontWeight: "900",
-    marginBottom: 10,
+    marginBottom: 5,
   },
 
   subtitle: {
     color: colors.secondary,
-    fontSize: 16,
-    lineHeight: 23,
-    marginBottom: 24,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
   },
 
   infoCard: {
@@ -467,9 +494,11 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
 
   card: {
     backgroundColor: colors.card,
-    borderRadius: 28,
+    borderRadius: 20,
     padding: 20,
-    marginBottom: 22,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
 
   cardTitle: {

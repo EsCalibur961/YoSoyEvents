@@ -3,7 +3,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -16,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
+import { useFeedback } from "../contexts/FeedbackContext";
 import { hashPassword } from "../utils/hash";
 
 type TeacherUser = {
@@ -28,6 +28,7 @@ type TeacherUser = {
 
 export default function ChangeTeacherPasswordScreen() {
   const { colors, isDark } = useTheme();
+  const { success, error, warning } = useFeedback();
   const styles = createStyles(colors, isDark);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -35,15 +36,12 @@ export default function ChangeTeacherPasswordScreen() {
 
   const saveNewPassword = async () => {
     if (newPassword.length < 8) {
-      Alert.alert(
-        "Password troppo corta",
-        "La nuova password deve avere almeno 8 caratteri.",
-      );
+      warning("Password troppo corta", "La nuova password deve avere almeno 8 caratteri.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert("Errore", "Le password non coincidono.");
+      warning("Password non coincidenti", "Le password non coincidono.");
       return;
     }
 
@@ -51,7 +49,7 @@ export default function ChangeTeacherPasswordScreen() {
     const savedTeachers = await AsyncStorage.getItem("teachers");
 
     if (!teacherUsername || !savedTeachers) {
-      Alert.alert("Errore", "Sessione maestro non trovata.");
+      error("Sessione non trovata", "Sessione maestro non trovata.");
       router.replace("/login");
       return;
     }
@@ -70,12 +68,8 @@ export default function ChangeTeacherPasswordScreen() {
 
     await AsyncStorage.setItem("teachers", JSON.stringify(updatedTeachers));
 
-    Alert.alert(
-      "Password aggiornata",
-      "Ora puoi accedere alla tua area maestro.",
-    );
-
-    router.replace("/(tabs)");
+    success("Password aggiornata", "Ora puoi accedere alla tua area maestro.");
+    setTimeout(() => router.replace("/(tabs)"), 650);
   };
 
   return (

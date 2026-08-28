@@ -18,6 +18,9 @@ type EventPack = {
   letter?: string;
   price?: string;
   description?: string;
+  supplementDoppia?: string;
+  supplementTripla?: string;
+  supplementQuadrupla?: string;
 };
 
 type EventItem = {
@@ -168,6 +171,18 @@ export default function EventDetailsScreen() {
                 <Text style={styles.packDescription}>
                   {pack.description || "Nessuna descrizione."}
                 </Text>
+
+                <View style={styles.supplementsBox}>
+                  <Text style={styles.supplementLine}>
+                    Doppia: €{pack.price || "0"} + €{pack.supplementDoppia || "0"} supplemento
+                  </Text>
+                  <Text style={styles.supplementLine}>
+                    Tripla: €{pack.price || "0"} + €{pack.supplementTripla || "0"} supplemento
+                  </Text>
+                  <Text style={styles.supplementLine}>
+                    Quadrupla: €{pack.price || "0"} + €{pack.supplementQuadrupla || "0"} supplemento
+                  </Text>
+                </View>
               </View>
             </View>
           ))
@@ -333,6 +348,20 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     color: colors.secondary,
     fontSize: 14,
     lineHeight: 20,
+  },
+
+  supplementsBox: {
+    marginTop: 9,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 9,
+  },
+
+  supplementLine: {
+    color: colors.secondary,
+    fontSize: 11,
+    lineHeight: 17,
+    fontWeight: "800",
   },
 
   emptyPackBox: {

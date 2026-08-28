@@ -9,7 +9,6 @@ import {
 } from "firebase/firestore";
 import { useCallback, useMemo, useState } from "react";
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
+import { useFeedback } from "../contexts/FeedbackContext";
 import { db } from "../firebase";
 
 type RoomType = "Doppia" | "Tripla" | "Quadrupla";
@@ -67,6 +67,7 @@ const roomTypes: RoomType[] = ["Doppia", "Tripla", "Quadrupla"];
 
 export default function ManageRoomsScreen() {
   const { colors, isDark } = useTheme();
+  const { success, error, warning, info, confirm } = useFeedback();
   const styles = createStyles(colors, isDark);
   const [teachers, setTeachers] = useState<TeacherUser[]>([]);
   const [assignments, setAssignments] = useState<RoomAssignment[]>([]);
@@ -84,6 +85,8 @@ export default function ManageRoomsScreen() {
   const [selectedTeacher, setSelectedTeacher] = useState<TeacherUser | null>(
     null,
   );
+  const [teacherSearch, setTeacherSearch] = useState("");
+  const [teacherFilter, setTeacherFilter] = useState<"all" | "assigned" | "unassigned">("all");
 
   const [totalDoppie, setTotalDoppie] = useState("");
   const [totalTriple, setTotalTriple] = useState("");
@@ -284,11 +287,27 @@ export default function ManageRoomsScreen() {
     );
   }, [validAssignments]);
 
+  const reservedTotals = useMemo(() => {
+    return validAssignments.reduce(
+      (acc, assignment) => {
+        const completed = getCompletedForTeacher(assignment.teacherUsername);
+
+        roomTypes.forEach((type) => {
+          const assigned = Number(assignment.quantities?.[type] || 0);
+          acc[type] += Math.max(assigned, completed[type]);
+        });
+
+        return acc;
+      },
+      { Doppia: 0, Tripla: 0, Quadrupla: 0 } as Record<RoomType, number>,
+    );
+  }, [validAssignments, completedRoomsByTeacher]);
+
   const remainingTotals = {
-    Doppia: Number(settings.totalRooms?.Doppia || 0) - completedTotals.Doppia,
-    Tripla: Number(settings.totalRooms?.Tripla || 0) - completedTotals.Tripla,
+    Doppia: Number(settings.totalRooms?.Doppia || 0) - reservedTotals.Doppia,
+    Tripla: Number(settings.totalRooms?.Tripla || 0) - reservedTotals.Tripla,
     Quadrupla:
-      Number(settings.totalRooms?.Quadrupla || 0) - completedTotals.Quadrupla,
+      Number(settings.totalRooms?.Quadrupla || 0) - reservedTotals.Quadrupla,
   };
 
   const saveTotalRooms = async () => {
@@ -308,9 +327,9 @@ export default function ManageRoomsScreen() {
         { merge: true },
       );
 
-      Alert.alert("Salvato", "Configurazione stanze aggiornata live.");
+      success("Configurazione salvata", "Disponibilità e scadenza modifiche sono state aggiornate live.");
     } catch {
-      Alert.alert("Errore", "Non è stato possibile salvare le stanze.");
+      error("Salvataggio non riuscito", "Non è stato possibile salvare la configurazione stanze.");
     }
   };
 
@@ -334,7 +353,7 @@ export default function ManageRoomsScreen() {
 
   const saveAssignment = async () => {
     if (!selectedTeacher?.username) {
-      Alert.alert("Maestro mancante", "Seleziona un maestro.");
+      warning("Maestro mancante", "Seleziona prima un maestro.");
       return;
     }
 
@@ -352,31 +371,60 @@ export default function ManageRoomsScreen() {
       Quadrupla: Number(existing?.quantities?.Quadrupla || 0),
     };
 
-    const nextAssigned = {
-      Doppia:
-        assignedTotals.Doppia - oldQuantities.Doppia + newQuantities.Doppia,
-      Tripla:
-        assignedTotals.Tripla - oldQuantities.Tripla + newQuantities.Tripla,
-      Quadrupla:
-        assignedTotals.Quadrupla -
-        oldQuantities.Quadrupla +
-        newQuantities.Quadrupla,
-    };
-
     const totalRooms = {
       Doppia: Number(settings.totalRooms?.Doppia || 0),
       Tripla: Number(settings.totalRooms?.Tripla || 0),
       Quadrupla: Number(settings.totalRooms?.Quadrupla || 0),
     };
 
+    // Le camere non completate liberate da un maestro tornano subito disponibili.
+    // Quelle già completate/salvate restano invece fisicamente occupate.
+    const reservedByOthers = validAssignments.reduce(
+      (acc, assignment) => {
+        if (assignment.teacherUsername === selectedTeacher.username) return acc;
+
+        const completed = getCompletedForTeacher(assignment.teacherUsername);
+
+        roomTypes.forEach((type) => {
+          const assigned = Number(assignment.quantities?.[type] || 0);
+          acc[type] += Math.max(assigned, completed[type]);
+        });
+
+        return acc;
+      },
+      { Doppia: 0, Tripla: 0, Quadrupla: 0 } as Record<RoomType, number>,
+    );
+
+    const selectedCompleted = getCompletedForTeacher(selectedTeacher.username);
+
+    const nextReserved = {
+      Doppia:
+        reservedByOthers.Doppia +
+        Math.max(newQuantities.Doppia, selectedCompleted.Doppia),
+      Tripla:
+        reservedByOthers.Tripla +
+        Math.max(newQuantities.Tripla, selectedCompleted.Tripla),
+      Quadrupla:
+        reservedByOthers.Quadrupla +
+        Math.max(newQuantities.Quadrupla, selectedCompleted.Quadrupla),
+    };
+
     if (
-      nextAssigned.Doppia > totalRooms.Doppia ||
-      nextAssigned.Tripla > totalRooms.Tripla ||
-      nextAssigned.Quadrupla > totalRooms.Quadrupla
+      nextReserved.Doppia > totalRooms.Doppia ||
+      nextReserved.Tripla > totalRooms.Tripla ||
+      nextReserved.Quadrupla > totalRooms.Quadrupla
     ) {
-      Alert.alert(
+      const unavailableTypes = roomTypes
+        .filter((type) => nextReserved[type] > totalRooms[type])
+        .map(
+          (type) =>
+            `${type}: richieste ${nextReserved[type]} su ${totalRooms[type]}`,
+        )
+        .join(" • ");
+
+      warning(
         "Disponibilità insufficiente",
-        "Stai assegnando più camere di quelle disponibili.",
+        `Non ci sono abbastanza camere libere. ${unavailableTypes}`,
       );
       return;
     }
@@ -396,13 +444,53 @@ export default function ManageRoomsScreen() {
         { merge: true },
       );
 
-      Alert.alert("Assegnazione salvata", "Camere assegnate live al maestro.");
+      success("Assegnazione salvata", "Le camere sono state assegnate live al maestro.");
+      closeTeacherEditor();
     } catch {
-      Alert.alert("Errore", "Non è stato possibile salvare l’assegnazione.");
+      error("Assegnazione non salvata", "Non è stato possibile salvare l’assegnazione.");
     }
   };
 
   const availableTeachers = teachers.filter((teacher) => teacher.username);
+
+  const filteredTeachers = useMemo(() => {
+    const query = teacherSearch.trim().toLowerCase();
+
+    return [...availableTeachers]
+      .filter((teacher) => {
+        const assignment = getAssignmentForTeacher(teacher.username);
+        const hasAssignment = Boolean(
+          Number(assignment?.quantities?.Doppia || 0) ||
+            Number(assignment?.quantities?.Tripla || 0) ||
+            Number(assignment?.quantities?.Quadrupla || 0),
+        );
+
+        if (teacherFilter === "assigned" && !hasAssignment) return false;
+        if (teacherFilter === "unassigned" && hasAssignment) return false;
+
+        if (!query) return true;
+
+        return [
+          getTeacherFullName(teacher),
+          teacher.username,
+          teacher.danceSchool,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+      })
+      .sort((a, b) =>
+        getTeacherFullName(a).localeCompare(getTeacherFullName(b)),
+      );
+  }, [availableTeachers, assignments, teacherSearch, teacherFilter]);
+
+  const closeTeacherEditor = () => {
+    setSelectedTeacher(null);
+    setAssignDoppie("");
+    setAssignTriple("");
+    setAssignQuadruple("");
+  };
 
   return (
     <ScrollView
@@ -490,92 +578,184 @@ export default function ManageRoomsScreen() {
         ))}
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Seleziona maestro</Text>
-
-        {availableTeachers.length === 0 ? (
-          <Text style={styles.emptyText}>
-            Nessun maestro disponibile. Crea prima un maestro in Gestione
-            utenti.
-          </Text>
-        ) : (
-          availableTeachers.map((teacher) => {
-            const selected = selectedTeacher?.id === teacher.id;
-            const assignment = getAssignmentForTeacher(teacher.username);
-
-            return (
-              <TouchableOpacity
-                key={teacher.id}
-                style={[
-                  styles.teacherButton,
-                  selected && styles.teacherButtonActive,
-                ]}
-                onPress={() => selectTeacher(teacher)}
-              >
-                <View style={styles.teacherInfo}>
-                  <Text style={styles.teacherName}>
-                    {getTeacherFullName(teacher)}
-                  </Text>
-
-                  <Text style={styles.teacherSchool}>
-                    @{teacher.username} •{" "}
-                    {teacher.danceSchool || "Scuola non inserita"}
-                  </Text>
-
-                  {assignment ? (
-                    <>
-                      <Text style={styles.assignmentText}>
-                        Assegnate — Doppie: {assignment.quantities?.Doppia || 0} • Triple:{" "}
-                        {assignment.quantities?.Tripla || 0} • Quadruple:{" "}
-                        {assignment.quantities?.Quadrupla || 0}
-                      </Text>
-
-                      <Text style={styles.completedText}>
-                        Completate — Doppie: {getCompletedForTeacher(teacher.username).Doppia} • Triple:{" "}
-                        {getCompletedForTeacher(teacher.username).Tripla} • Quadruple:{" "}
-                        {getCompletedForTeacher(teacher.username).Quadrupla}
-                      </Text>
-
-                      <Text style={styles.remainingText}>
-                        Rimaste — Doppie: {getRemainingForAssignment(assignment).Doppia} • Triple:{" "}
-                        {getRemainingForAssignment(assignment).Tripla} • Quadruple:{" "}
-                        {getRemainingForAssignment(assignment).Quadrupla}
-                      </Text>
-                    </>
-                  ) : null}
-                </View>
-
-                <Ionicons
-                  name={selected ? "checkmark-circle" : "ellipse-outline"}
-                  size={24}
-                  color={selected ? colors.primary : colors.secondary}
-                />
-              </TouchableOpacity>
-            );
-          })
-        )}
-      </View>
-
-      {selectedTeacher ? (
+      {!selectedTeacher ? (
         <View style={styles.card}>
+          <View style={styles.teacherListHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardTitle}>Maestri</Text>
+              <Text style={styles.teacherListSubtitle}>
+                Cerca il maestro e apri solo la sua assegnazione.
+              </Text>
+            </View>
+
+            <View style={styles.teacherCountPill}>
+              <Text style={styles.teacherCountText}>{filteredTeachers.length}</Text>
+            </View>
+          </View>
+
+          <View style={styles.teacherSearchBox}>
+            <Ionicons name="search-outline" size={19} color={colors.secondary} />
+            <TextInput
+              style={styles.teacherSearchInput}
+              value={teacherSearch}
+              onChangeText={setTeacherSearch}
+              placeholder="Cerca maestro, username o scuola"
+              placeholderTextColor={colors.placeholder}
+              autoCapitalize="none"
+            />
+            {teacherSearch ? (
+              <TouchableOpacity onPress={() => setTeacherSearch("")}>
+                <Ionicons name="close-circle" size={19} color={colors.secondary} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          <View style={styles.teacherFilters}>
+            {([
+              ["all", "Tutti"],
+              ["assigned", "Con camere"],
+              ["unassigned", "Senza camere"],
+            ] as const).map(([value, label]) => {
+              const active = teacherFilter === value;
+
+              return (
+                <TouchableOpacity
+                  key={value}
+                  style={[
+                    styles.teacherFilterButton,
+                    active && styles.teacherFilterButtonActive,
+                  ]}
+                  onPress={() => setTeacherFilter(value)}
+                >
+                  <Text
+                    style={[
+                      styles.teacherFilterText,
+                      active && styles.teacherFilterTextActive,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {filteredTeachers.length === 0 ? (
+            <View style={styles.compactEmptyBox}>
+              <Ionicons name="people-outline" size={36} color={colors.secondary} />
+              <Text style={styles.emptyText}>Nessun maestro trovato.</Text>
+            </View>
+          ) : (
+            filteredTeachers.map((teacher) => {
+              const assignment = getAssignmentForTeacher(teacher.username);
+              const completed = getCompletedForTeacher(teacher.username);
+              const assignedCount =
+                Number(assignment?.quantities?.Doppia || 0) +
+                Number(assignment?.quantities?.Tripla || 0) +
+                Number(assignment?.quantities?.Quadrupla || 0);
+              const completedCount =
+                completed.Doppia + completed.Tripla + completed.Quadrupla;
+
+              return (
+                <TouchableOpacity
+                  key={teacher.id}
+                  style={styles.compactTeacherCard}
+                  onPress={() => selectTeacher(teacher)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.compactTeacherAvatar}>
+                    <Ionicons name="person-outline" size={20} color={colors.primary} />
+                  </View>
+
+                  <View style={styles.compactTeacherInfo}>
+                    <Text style={styles.compactTeacherName} numberOfLines={1}>
+                      {getTeacherFullName(teacher)}
+                    </Text>
+
+                    <Text style={styles.compactTeacherSchool} numberOfLines={1}>
+                      @{teacher.username} • {teacher.danceSchool || "Scuola non inserita"}
+                    </Text>
+
+                    <View style={styles.compactTeacherStats}>
+                      <View style={styles.compactStatPill}>
+                        <Ionicons name="bed-outline" size={12} color={colors.primary} />
+                        <Text style={styles.compactStatText}>
+                          {assignedCount} assegnate
+                        </Text>
+                      </View>
+
+                      <View style={styles.compactStatPill}>
+                        <Ionicons name="checkmark-circle-outline" size={12} color={colors.success} />
+                        <Text style={styles.compactStatText}>
+                          {completedCount} completate
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <Ionicons
+                    name="chevron-forward-outline"
+                    size={21}
+                    color={colors.secondary}
+                  />
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </View>
+      ) : (
+        <View style={styles.card}>
+          <View style={styles.teacherEditorTop}>
+            <TouchableOpacity
+              style={styles.teacherEditorBack}
+              onPress={closeTeacherEditor}
+            >
+              <Ionicons name="chevron-back-outline" size={18} color={colors.primary} />
+              <Text style={styles.teacherEditorBackText}>Torna ai maestri</Text>
+            </TouchableOpacity>
+          </View>
+
           <Text style={styles.cardTitle}>
             Assegna camere a {getTeacherFullName(selectedTeacher)}
+          </Text>
+
+          <Text style={styles.selectedTeacherMeta}>
+            @{selectedTeacher.username} • {selectedTeacher.danceSchool || "Scuola non inserita"}
           </Text>
 
           {getAssignmentForTeacher(selectedTeacher.username) ? (
             <View style={styles.remainingCard}>
               <Text style={styles.remainingCardTitle}>Situazione attuale</Text>
-              <Text style={styles.remainingCardText}>
-                Doppie rimaste: {getRemainingForAssignment(getAssignmentForTeacher(selectedTeacher.username)).Doppia}
-              </Text>
-              <Text style={styles.remainingCardText}>
-                Triple rimaste: {getRemainingForAssignment(getAssignmentForTeacher(selectedTeacher.username)).Tripla}
-              </Text>
-              <Text style={styles.remainingCardText}>
-                Quadruple rimaste: {getRemainingForAssignment(getAssignmentForTeacher(selectedTeacher.username)).Quadrupla}
+
+              <View style={styles.currentRoomGrid}>
+                {roomTypes.map((type) => {
+                  const assignment = getAssignmentForTeacher(selectedTeacher.username);
+                  const assigned = Number(assignment?.quantities?.[type] || 0);
+                  const completed = getCompletedForTeacher(selectedTeacher.username)[type];
+                  const remaining = getRemainingForAssignment(assignment)[type];
+
+                  return (
+                    <View key={type} style={styles.currentRoomBox}>
+                      <Text style={styles.currentRoomType}>{type}</Text>
+                      <Text style={styles.currentRoomAssigned}>{assigned}</Text>
+                      <Text style={styles.currentRoomSmall}>assegnate</Text>
+                      <Text style={styles.currentRoomComplete}>{completed} completate</Text>
+                      <Text style={styles.currentRoomRemaining}>{remaining} rimaste</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          ) : (
+            <View style={styles.noAssignmentBox}>
+              <Ionicons name="bed-outline" size={22} color={colors.secondary} />
+              <Text style={styles.noAssignmentText}>
+                Nessuna camera ancora assegnata a questo maestro.
               </Text>
             </View>
-          ) : null}
+          )}
+
+          <Text style={styles.assignmentSectionTitle}>Nuova assegnazione</Text>
 
           <TextInput
             style={styles.input}
@@ -605,11 +785,12 @@ export default function ManageRoomsScreen() {
           />
 
           <TouchableOpacity style={styles.saveButton} onPress={saveAssignment}>
-            <Ionicons name="bed" size={22} color={colors.text} />
+            <Ionicons name="bed" size={22} color={colors.onPrimary} />
             <Text style={styles.saveButtonText}>Salva assegnazione</Text>
           </TouchableOpacity>
         </View>
-      ) : null}
+      )}
+
     </ScrollView>
   );
 }
@@ -745,6 +926,262 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontWeight: "900",
       textAlign: "center",
       marginTop: 5,
+    },
+
+    teacherListHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      marginBottom: 12,
+    },
+
+    teacherListSubtitle: {
+      color: colors.secondary,
+      fontSize: 12,
+      lineHeight: 17,
+      fontWeight: "700",
+      marginTop: -10,
+    },
+
+    teacherCountPill: {
+      minWidth: 36,
+      height: 36,
+      borderRadius: 12,
+      backgroundColor: `${colors.primary}14`,
+      alignItems: "center",
+      justifyContent: "center",
+      marginLeft: 10,
+    },
+
+    teacherCountText: {
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: "900",
+    },
+
+    teacherSearchBox: {
+      height: 50,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 13,
+      marginBottom: 10,
+    },
+
+    teacherSearchInput: {
+      flex: 1,
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: "700",
+      marginLeft: 8,
+    },
+
+    teacherFilters: {
+      flexDirection: "row",
+      gap: 7,
+      marginBottom: 12,
+    },
+
+    teacherFilterButton: {
+      flex: 1,
+      minHeight: 38,
+      borderRadius: 13,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    teacherFilterButtonActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+
+    teacherFilterText: {
+      color: colors.secondary,
+      fontSize: 10,
+      fontWeight: "900",
+      textAlign: "center",
+    },
+
+    teacherFilterTextActive: {
+      color: colors.onPrimary,
+    },
+
+    compactTeacherCard: {
+      minHeight: 76,
+      borderRadius: 17,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+      padding: 10,
+      marginBottom: 8,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+
+    compactTeacherAvatar: {
+      width: 46,
+      height: 46,
+      borderRadius: 14,
+      backgroundColor: `${colors.primary}12`,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 10,
+    },
+
+    compactTeacherInfo: {
+      flex: 1,
+      minWidth: 0,
+    },
+
+    compactTeacherName: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: "900",
+    },
+
+    compactTeacherSchool: {
+      color: colors.secondary,
+      fontSize: 10,
+      fontWeight: "700",
+      marginTop: 3,
+    },
+
+    compactTeacherStats: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 5,
+      marginTop: 6,
+    },
+
+    compactStatPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.card,
+      borderRadius: 9,
+      paddingHorizontal: 6,
+      paddingVertical: 4,
+    },
+
+    compactStatText: {
+      color: colors.secondary,
+      fontSize: 9,
+      fontWeight: "900",
+      marginLeft: 4,
+    },
+
+    compactEmptyBox: {
+      alignItems: "center",
+      paddingVertical: 28,
+    },
+
+    teacherEditorTop: {
+      marginBottom: 12,
+    },
+
+    teacherEditorBack: {
+      alignSelf: "flex-start",
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: `${colors.primary}12`,
+      borderRadius: 12,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+    },
+
+    teacherEditorBackText: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: "900",
+      marginLeft: 4,
+    },
+
+    selectedTeacherMeta: {
+      color: colors.secondary,
+      fontSize: 12,
+      fontWeight: "800",
+      marginTop: -10,
+      marginBottom: 16,
+    },
+
+    currentRoomGrid: {
+      flexDirection: "row",
+      gap: 7,
+    },
+
+    currentRoomBox: {
+      flex: 1,
+      backgroundColor: colors.card,
+      borderRadius: 14,
+      paddingVertical: 10,
+      paddingHorizontal: 5,
+      alignItems: "center",
+    },
+
+    currentRoomType: {
+      color: colors.secondary,
+      fontSize: 9,
+      fontWeight: "900",
+    },
+
+    currentRoomAssigned: {
+      color: colors.text,
+      fontSize: 20,
+      fontWeight: "900",
+      marginTop: 3,
+    },
+
+    currentRoomSmall: {
+      color: colors.secondary,
+      fontSize: 8,
+      fontWeight: "700",
+    },
+
+    currentRoomComplete: {
+      color: colors.success,
+      fontSize: 8,
+      fontWeight: "900",
+      marginTop: 5,
+      textAlign: "center",
+    },
+
+    currentRoomRemaining: {
+      color: colors.warning,
+      fontSize: 8,
+      fontWeight: "900",
+      marginTop: 2,
+      textAlign: "center",
+    },
+
+    noAssignmentBox: {
+      backgroundColor: colors.background,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 14,
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 16,
+    },
+
+    noAssignmentText: {
+      flex: 1,
+      color: colors.secondary,
+      fontSize: 12,
+      fontWeight: "700",
+      marginLeft: 9,
+    },
+
+    assignmentSectionTitle: {
+      color: colors.text,
+      fontSize: 17,
+      fontWeight: "900",
+      marginBottom: 12,
     },
 
     teacherButton: {

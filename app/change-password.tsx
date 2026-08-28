@@ -4,7 +4,6 @@ import { router } from "expo-router";
 import { doc, updateDoc } from "firebase/firestore";
 import { useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -14,11 +13,13 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
+import { useFeedback } from "../contexts/FeedbackContext";
 import { db } from "../firebase";
 import { hashPassword } from "../utils/hash";
 
 export default function ChangePasswordScreen() {
   const { colors, isDark } = useTheme();
+  const { success, error, warning } = useFeedback();
   const styles = createStyles(colors, isDark);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -26,17 +27,17 @@ export default function ChangePasswordScreen() {
 
   const savePassword = async () => {
     if (!newPassword.trim() || !confirmPassword.trim()) {
-      Alert.alert("Campi mancanti", "Inserisci e conferma la nuova password.");
+      warning("Campi mancanti", "Inserisci e conferma la nuova password.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert("Errore", "Le password non coincidono.");
+      warning("Password non coincidenti", "Le password non coincidono.");
       return;
     }
 
     if (newPassword.length < 6) {
-      Alert.alert("Password debole", "Inserisci almeno 6 caratteri.");
+      warning("Password debole", "Inserisci almeno 6 caratteri.");
       return;
     }
 
@@ -47,7 +48,7 @@ export default function ChangePasswordScreen() {
 
       if (!teacherId) {
         setLoading(false);
-        Alert.alert("Errore", "Utente maestro non trovato.");
+        error("Maestro non trovato", "Utente maestro non trovato.");
         return;
       }
 
@@ -58,15 +59,11 @@ export default function ChangePasswordScreen() {
 
       setLoading(false);
 
-      Alert.alert("Password aggiornata", "Ora puoi usare l’app.", [
-        {
-          text: "Continua",
-          onPress: () => router.replace("/"),
-        },
-      ]);
+      success("Password aggiornata", "La nuova password è stata salvata correttamente.");
+      setTimeout(() => router.replace("/"), 650);
     } catch (error) {
       setLoading(false);
-      Alert.alert("Errore", "Non è stato possibile aggiornare la password.");
+      error("Aggiornamento non riuscito", "Non è stato possibile aggiornare la password.");
     }
   };
 

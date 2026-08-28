@@ -2,7 +2,7 @@
   "expo": {
     "name": "YoSoyEvents",
     "slug": "YoSoyEvents",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "yosoyevents",
@@ -63,11 +63,13 @@
       "@react-native-community/datetimepicker",
       "expo-font",
       [
-        "expo-notifications",
-        {
-          "sounds": []
-        }
-      ]
+  "expo-notifications",
+  {
+    "icon": "./assets/images/notification-icon.png",
+    "color": "#2563EB",
+    "sounds": []
+  }
+]
     ],
     "experiments": {
       "typedRoutes": true,

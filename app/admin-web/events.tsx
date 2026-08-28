@@ -24,12 +24,13 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
-import { useTheme } from "../contexts/ThemeContext";
-import { useFeedback } from "../contexts/FeedbackContext";
-import { db, storage } from "../firebase";
-import { sendPushNotificationsToRoleAsync } from "../services/pushNotifications";
+import { useTheme } from "../../contexts/ThemeContext";
+import { useFeedback } from "../../contexts/FeedbackContext";
+import { db, storage } from "../../firebase";
+import { sendPushNotificationsToRoleAsync } from "../../services/pushNotifications";
 
 type ArtistItem = {
   id: string;
@@ -64,10 +65,11 @@ type EventItem = {
   allowStayDateSelection?: boolean;
 };
 
-export default function ManageEventsScreen() {
+export default function AdminWebEventsScreen() {
   const { colors, isDark } = useTheme();
+  const { width } = useWindowDimensions();
   const { success, error, warning, info, confirm } = useFeedback();
-  const styles = createStyles(colors, isDark);
+  const styles = createStyles(colors, isDark, width < 700);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [artists, setArtists] = useState<ArtistItem[]>([]);
   const [artistSearch, setArtistSearch] = useState("");
@@ -755,16 +757,21 @@ export default function ManageEventsScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.replace("/admin-web")}>
         <Ionicons name="chevron-back-outline" size={24} color={colors.text} />
-        <Text style={styles.backText}>Indietro</Text>
+        <Text style={styles.backText}>Dashboard Web</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>Gestione eventi</Text>
+      <View style={styles.webHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.webEyebrow}>YO SOY EVENTS / ADMIN WEB</Text>
+          <Text style={styles.title}>Eventi e artisti</Text>
+          <Text style={styles.subtitle}>
+            Pubblicazione eventi, Pack, supplementi, permanenza e artisti dallo stesso pannello desktop.
+          </Text>
+        </View>
 
-      <Text style={styles.subtitle}>
-        Eventi, artisti e creazione separati in un pannello più rapido.
-      </Text>
+      </View>
 
       <View style={styles.adminTabs}>
         <TouchableOpacity
@@ -1281,29 +1288,31 @@ export default function ManageEventsScreen() {
           multiline
         />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Dal es. 12/08/2026"
-          placeholderTextColor={colors.placeholder}
-          value={startDate}
-          onChangeText={setStartDate}
-        />
+        <View style={styles.desktopFieldRow}>
+          <TextInput
+            style={[styles.input, styles.desktopField]}
+            placeholder="Dal es. 12/08/2026"
+            placeholderTextColor={colors.placeholder}
+            value={startDate}
+            onChangeText={setStartDate}
+          />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Al es. 15/08/2026"
-          placeholderTextColor={colors.placeholder}
-          value={endDate}
-          onChangeText={setEndDate}
-        />
+          <TextInput
+            style={[styles.input, styles.desktopField]}
+            placeholder="Al es. 15/08/2026"
+            placeholderTextColor={colors.placeholder}
+            value={endDate}
+            onChangeText={setEndDate}
+          />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Location evento"
-          placeholderTextColor={colors.placeholder}
-          value={location}
-          onChangeText={setLocation}
-        />
+          <TextInput
+            style={[styles.input, styles.desktopFieldWide]}
+            placeholder="Location evento"
+            placeholderTextColor={colors.placeholder}
+            value={location}
+            onChangeText={setLocation}
+          />
+        </View>
 
         <TouchableOpacity
           style={[
@@ -1355,63 +1364,66 @@ export default function ManageEventsScreen() {
         <Text style={styles.sectionTitle}>Pack a persona</Text>
 
         <View style={styles.packForm}>
-          <TextInput
-            style={styles.input}
-            placeholder="Lettera pack es. A"
-            placeholderTextColor={colors.placeholder}
-            value={packLetter}
-            onChangeText={setPackLetter}
-            editable={!editingPackId}
-            autoCapitalize="characters"
-            maxLength={1}
-          />
+          <View style={styles.packTopRow}>
+            <TextInput
+              style={[styles.input, styles.packLetterField]}
+              placeholder="Pack es. A"
+              placeholderTextColor={colors.placeholder}
+              value={packLetter}
+              onChangeText={setPackLetter}
+              editable={!editingPackId}
+              autoCapitalize="characters"
+              maxLength={1}
+            />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Prezzo base a persona es. 250"
-            placeholderTextColor={colors.placeholder}
-            value={packPrice}
-            onChangeText={(value) => setPackPrice(cleanPriceValue(value))}
-            keyboardType="numeric"
-          />
+            <TextInput
+              style={[styles.input, styles.packPriceField]}
+              placeholder="Prezzo base es. 250"
+              placeholderTextColor={colors.placeholder}
+              value={packPrice}
+              onChangeText={(value) => setPackPrice(cleanPriceValue(value))}
+              keyboardType="numeric"
+            />
 
-          <TextInput
-            style={[styles.input, styles.textAreaSmall]}
-            placeholder="Descrizione es. Full pass"
-            placeholderTextColor={colors.placeholder}
-            value={packDescription}
-            onChangeText={setPackDescription}
-            multiline
-          />
+            <TextInput
+              style={[styles.input, styles.packDescriptionField]}
+              placeholder="Descrizione es. Full pass"
+              placeholderTextColor={colors.placeholder}
+              value={packDescription}
+              onChangeText={setPackDescription}
+            />
+          </View>
 
           <Text style={styles.supplementTitle}>Supplementi camera</Text>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Supplemento Doppia es. 30"
-            placeholderTextColor={colors.placeholder}
-            value={supplementDoppia}
-            onChangeText={(value) => setSupplementDoppia(cleanPriceValue(value))}
-            keyboardType="numeric"
-          />
+          <View style={styles.supplementRow}>
+            <TextInput
+              style={[styles.input, styles.supplementField]}
+              placeholder="Doppia es. 30"
+              placeholderTextColor={colors.placeholder}
+              value={supplementDoppia}
+              onChangeText={(value) => setSupplementDoppia(cleanPriceValue(value))}
+              keyboardType="numeric"
+            />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Supplemento Tripla es. 0"
-            placeholderTextColor={colors.placeholder}
-            value={supplementTripla}
-            onChangeText={(value) => setSupplementTripla(cleanPriceValue(value))}
-            keyboardType="numeric"
-          />
+            <TextInput
+              style={[styles.input, styles.supplementField]}
+              placeholder="Tripla es. 0"
+              placeholderTextColor={colors.placeholder}
+              value={supplementTripla}
+              onChangeText={(value) => setSupplementTripla(cleanPriceValue(value))}
+              keyboardType="numeric"
+            />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Supplemento Quadrupla es. 0"
-            placeholderTextColor={colors.placeholder}
-            value={supplementQuadrupla}
-            onChangeText={(value) => setSupplementQuadrupla(cleanPriceValue(value))}
-            keyboardType="numeric"
-          />
+            <TextInput
+              style={[styles.input, styles.supplementField]}
+              placeholder="Quadrupla es. 0"
+              placeholderTextColor={colors.placeholder}
+              value={supplementQuadrupla}
+              onChangeText={(value) => setSupplementQuadrupla(cleanPriceValue(value))}
+              keyboardType="numeric"
+            />
+          </View>
 
           <TouchableOpacity style={styles.addPackButton} onPress={savePackForm}>
             <Ionicons
@@ -1526,14 +1538,52 @@ export default function ManageEventsScreen() {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) =>
+const createStyles = (colors: any, isDark: boolean, isMobile: boolean) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
 
     content: {
-      paddingTop: 34,
-      paddingHorizontal: 16,
+      width: "100%",
+      maxWidth: 1320,
+      alignSelf: "center",
+      paddingTop: 30,
+      paddingHorizontal: isMobile ? 14 : 32,
       paddingBottom: 120,
+    },
+
+    webHeader: {
+      flexDirection: isMobile ? "column" : "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: 20,
+      marginBottom: 6,
+    },
+
+    webEyebrow: {
+      color: colors.primary,
+      fontSize: 10,
+      fontWeight: "900",
+      letterSpacing: 1.1,
+      marginBottom: 7,
+    },
+
+    mobileViewButton: {
+      minHeight: 42,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+      paddingHorizontal: 13,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    mobileViewText: {
+      color: colors.primary,
+      fontSize: 10,
+      fontWeight: "900",
+      marginLeft: 6,
     },
 
     backButton: {
@@ -1565,6 +1615,7 @@ const createStyles = (colors: any, isDark: boolean) =>
 
     adminTabs: {
       flexDirection: "row",
+      flexWrap: "wrap",
       backgroundColor: colors.card,
       borderRadius: 20,
       borderWidth: 1,
@@ -1599,7 +1650,7 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     sectionHeaderRow: {
-      flexDirection: "row",
+      flexDirection: isMobile ? "column" : "row",
       justifyContent: "space-between",
       alignItems: "center",
       marginBottom: 14,
@@ -1633,13 +1684,16 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     compactEventCard: {
+      width: "100%",
+      maxWidth: 1120,
+      alignSelf: "center",
       backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: 22,
       padding: 12,
       marginBottom: 12,
-      flexDirection: "row",
+      flexDirection: isMobile ? "column" : "row",
       alignItems: "center",
       shadowColor: "#000",
       shadowOpacity: isDark ? 0.13 : 0.04,
@@ -1649,23 +1703,25 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     compactEventImage: {
-      width: 82,
-      height: 82,
+      width: isMobile ? "100%" : 108,
+      height: isMobile ? 190 : 86,
       borderRadius: 17,
       backgroundColor: colors.background,
-      marginRight: 12,
+      marginRight: isMobile ? 0 : 12,
+      marginBottom: isMobile ? 12 : 0,
     },
 
     compactEventImagePlaceholder: {
-      width: 82,
-      height: 82,
+      width: isMobile ? "100%" : 108,
+      height: isMobile ? 190 : 86,
       borderRadius: 17,
       backgroundColor: colors.background,
       borderWidth: 1,
       borderColor: colors.border,
       alignItems: "center",
       justifyContent: "center",
-      marginRight: 12,
+      marginRight: isMobile ? 0 : 12,
+      marginBottom: isMobile ? 12 : 0,
     },
 
     compactEventInfo: {
@@ -1773,6 +1829,9 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     card: {
+      width: "100%",
+      maxWidth: 1050,
+      alignSelf: "center",
       backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.border,
@@ -1818,6 +1877,45 @@ const createStyles = (colors: any, isDark: boolean) =>
       marginBottom: 14,
       borderWidth: 1,
       borderColor: colors.border,
+    },
+
+    desktopFieldRow: {
+      flexDirection: isMobile ? "column" : "row",
+      gap: 10,
+    },
+
+    desktopField: {
+      flex: 1,
+    },
+
+    desktopFieldWide: {
+      flex: 1.5,
+    },
+
+    packTopRow: {
+      flexDirection: isMobile ? "column" : "row",
+      gap: 10,
+    },
+
+    packLetterField: {
+      flex: 0.55,
+    },
+
+    packPriceField: {
+      flex: 1,
+    },
+
+    packDescriptionField: {
+      flex: 2,
+    },
+
+    supplementRow: {
+      flexDirection: isMobile ? "column" : "row",
+      gap: 10,
+    },
+
+    supplementField: {
+      flex: 1,
     },
 
     textArea: {
@@ -1945,7 +2043,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       marginBottom: 12,
       borderWidth: 1,
       borderColor: colors.border,
-      flexDirection: "row",
+      flexDirection: isMobile ? "column" : "row",
       alignItems: "center",
     },
 
@@ -2104,7 +2202,7 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     artistHeaderRow: {
-      flexDirection: "row",
+      flexDirection: isMobile ? "column" : "row",
       alignItems: "center",
       justifyContent: "space-between",
       gap: 12,
@@ -2133,6 +2231,7 @@ const createStyles = (colors: any, isDark: boolean) =>
 
     artistFilters: {
       flexDirection: "row",
+      flexWrap: "wrap",
       gap: 7,
       marginBottom: 8,
     },
@@ -2171,14 +2270,17 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     artistCompactCard: {
-      minHeight: 72,
+      width: "100%",
+      maxWidth: 1050,
+      alignSelf: "center",
+      minHeight: 76,
       backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: 18,
       padding: 8,
       marginBottom: 8,
-      flexDirection: "row",
+      flexDirection: isMobile ? "column" : "row",
       alignItems: "center",
     },
 

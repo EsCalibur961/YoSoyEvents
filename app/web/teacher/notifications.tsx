@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import {
   addDoc,
   collection,
@@ -20,11 +20,12 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
-import { useTheme } from "../contexts/ThemeContext";
-import { useFeedback } from "../contexts/FeedbackContext";
-import { db } from "../firebase";
+import { useTheme } from "../../../contexts/ThemeContext";
+import { useFeedback } from "../../../contexts/FeedbackContext";
+import { db } from "../../../firebase";
 
 type AppNotification = {
   id: string;
@@ -113,10 +114,11 @@ const formatGuestName = (guest?: any) => {
   return name || "Non inserito";
 };
 
-export default function NotificationsScreen() {
+export default function TeacherWebNotificationsScreen() {
   const { colors, isDark } = useTheme();
+  const { width } = useWindowDimensions();
   const { success, error, warning, confirm } = useFeedback();
-  const styles = createStyles(colors, isDark);
+  const styles = createStyles(colors, isDark, width < 700);
   const [role, setRole] = useState<string | null>(null);
   const [teacherUsername, setTeacherUsername] = useState<string | null>(null);
 
@@ -128,8 +130,8 @@ export default function NotificationsScreen() {
   const [rejectionReason, setRejectionReason] = useState("");
   const [applyingRequestId, setApplyingRequestId] = useState<string | null>(null);
 
-  const params = useLocalSearchParams<{ mode?: string }>();
-  const isRoomRequestsMode = role === "admin" && params.mode === "roomRequests";
+  // La pagina Web maestro mostra esclusivamente le notifiche del maestro.
+  const isRoomRequestsMode = false;
 
   useFocusEffect(
     useCallback(() => {
@@ -745,15 +747,19 @@ export default function NotificationsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Ionicons name="chevron-back-outline" size={24} color={colors.text} />
-        <Text style={styles.backText}>Indietro</Text>
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => router.replace("/web/teacher")}
+      >
+        <Ionicons name="home-outline" size={20} color={colors.primary} />
+        <Text style={[styles.backText, { color: colors.primary }]}>Home maestro</Text>
       </TouchableOpacity>
 
       <View style={styles.header}>
         <View style={{ flex: 1, paddingRight: 12 }}>
-          <Text style={styles.title}>{isRoomRequestsMode ? "Richieste modifiche camere" : "Notifiche"}</Text>
-          <Text style={styles.subtitle}>{isRoomRequestsMode ? "Approva o rifiuta le modifiche richieste dai maestri." : "Aggiornamenti live"}</Text>
+          <Text style={styles.webEyebrow}>YO SOY EVENTS / WEB MAESTRO</Text>
+          <Text style={styles.title}>Notifiche</Text>
+          <Text style={styles.subtitle}>Aggiornamenti, eventi e comunicazioni relative al tuo account.</Text>
         </View>
         <View style={styles.badgeBox}><Text style={styles.badgeNumber}>{unreadCount}</Text></View>
       </View>
@@ -849,7 +855,7 @@ export default function NotificationsScreen() {
               onPress={() => {
                 markAsRead(notification.id);
                 if (notification.type === "event" && notification.eventId) {
-                  router.push({ pathname: "/event-details", params: { id: notification.eventId } });
+                  router.push("/web/teacher/explore");
                 }
               }}
             >
@@ -880,13 +886,38 @@ export default function NotificationsScreen() {
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) =>
+const createStyles = (colors: any, isDark: boolean, isMobile: boolean) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
-    content: { paddingTop: 34, paddingHorizontal: 22, paddingBottom: 120 },
-    backButton: { flexDirection: "row", alignItems: "center", marginBottom: 24 },
-    backText: { color: colors.text, fontSize: 16, fontWeight: "800", marginLeft: 6 },
-    header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 },
+    content: {
+      width: "100%",
+      maxWidth: 1040,
+      alignSelf: "center",
+      paddingTop: 28,
+      paddingHorizontal: isMobile ? 14 : 28,
+      paddingBottom: 90,
+    },
+    backButton: {
+      alignSelf: "flex-end",
+      minHeight: 42,
+      flexDirection: "row",
+      alignItems: "center",
+      borderRadius: 14,
+      paddingHorizontal: 12,
+      marginBottom: 10,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    backText: { fontSize: 9, fontWeight: "900", marginLeft: 6 },
+    webEyebrow: {
+      color: colors.primary,
+      fontSize: 9,
+      fontWeight: "900",
+      letterSpacing: 1.2,
+      marginBottom: 6,
+    },
+    header: { flexDirection: isMobile ? "column" : "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 22 },
     title: { color: colors.text, fontSize: 34, fontWeight: "900", marginBottom: 8 },
     subtitle: { color: colors.secondary, fontSize: 16, lineHeight: 23 },
     badgeBox: { minWidth: 48, height: 48, borderRadius: 18, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
@@ -904,7 +935,7 @@ const createStyles = (colors: any, isDark: boolean) =>
     dataLine: { color: colors.text, fontSize: 13, fontWeight: "700", marginBottom: 4 },
     rejectBox: { marginTop: 12 },
     rejectInput: { minHeight: 84, backgroundColor: colors.background, borderRadius: 16, borderWidth: 1, borderColor: colors.border, color: colors.text, padding: 12, textAlignVertical: "top", fontWeight: "700" },
-    requestActions: { flexDirection: "row", gap: 10, marginTop: 14 },
+    requestActions: { flexDirection: isMobile ? "column" : "row", gap: 10, marginTop: 14 },
     approveButton: { flex: 1, minHeight: 48, borderRadius: 16, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
     rejectButton: { flex: 1, minHeight: 48, borderRadius: 16, backgroundColor: colors.danger, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
     cancelRejectButton: { flex: 1, minHeight: 48, borderRadius: 16, backgroundColor: colors.secondary, alignItems: "center", justifyContent: "center" },
@@ -918,7 +949,16 @@ const createStyles = (colors: any, isDark: boolean) =>
     emptyBox: { alignItems: "center", padding: 28, borderRadius: 24, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
     emptyTitle: { color: colors.text, fontSize: 20, fontWeight: "900", marginTop: 12, marginBottom: 6 },
     emptyText: { color: colors.secondary, fontSize: 14, textAlign: "center", lineHeight: 21 },
-    notificationCard: { flexDirection: "row", backgroundColor: colors.card, borderRadius: 22, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: colors.border },
+    notificationCard: {
+      width: "100%",
+      flexDirection: "row",
+      backgroundColor: colors.card,
+      borderRadius: 18,
+      padding: 16,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
     notificationCardUnread: { borderColor: colors.primary },
     notificationIcon: { width: 44, height: 44, borderRadius: 16, backgroundColor: colors.cardAlt || colors.background, alignItems: "center", justifyContent: "center", marginRight: 12 },
     notificationContent: { flex: 1 },
