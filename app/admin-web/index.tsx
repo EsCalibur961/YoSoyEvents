@@ -452,6 +452,7 @@ export default function AdminWebScreen() {
         <View
           style={[
             styles.presenceCard,
+            isMobile && styles.managementCardMobile,
             { backgroundColor: colors.card, borderColor: colors.border },
           ]}
         >
@@ -512,6 +513,7 @@ export default function AdminWebScreen() {
         <View
           style={[
             styles.packSummary,
+            isMobile && styles.managementCardMobile,
             { backgroundColor: colors.card, borderColor: colors.border },
           ]}
         >
@@ -667,6 +669,7 @@ const styles = StyleSheet.create({
   managementGrid: { width: "100%", minWidth: 0, flexDirection: "row", gap: 12, marginBottom: 25 },
   presenceCard: { flex: 1.3, minWidth: 0, borderWidth: 1, borderRadius: 20, padding: 16 },
   packSummary: { flex: 0.9, minWidth: 0, borderWidth: 1, borderRadius: 20, padding: 16 },
+  managementCardMobile: { flexGrow: 0, flexShrink: 0, flexBasis: "auto", width: "100%" },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 10 },
   cardHeaderCopy: { flexShrink: 1, minWidth: 0 },
   cardTitle: { fontSize: 15, fontWeight: "900" },
