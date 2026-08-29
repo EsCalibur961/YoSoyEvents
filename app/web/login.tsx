@@ -189,7 +189,7 @@ export default function WebLoginScreen() {
 
       if (foundTeacher.mustChangePassword) {
         setTimeout(() => {
-          router.replace("/web/teacher/settings");
+          router.replace("/web/teacher/change-password");
         }, 150);
       } else {
         goToTeacherWeb();

@@ -90,6 +90,10 @@ export default function TeacherWebLayout() {
     setMenuOpen(false);
   }, [pathname]);
 
+  if (pathname === "/web/teacher/change-password") {
+    return <Slot />;
+  }
+
   const teacherName =
     `${teacher?.firstName || ""} ${teacher?.lastName || ""}`.trim() ||
     teacher?.username ||
