@@ -148,7 +148,7 @@ export default function AdminWebSettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.header, isMobile && styles.headerMobile]}>
-          <View style={styles.headerCopy}>
+          <View style={[styles.headerCopy, isMobile && styles.headerCopyMobile]}>
             <Text style={[styles.eyebrow, { color: colors.primary }]}>YO SOY EVENTS / ADMIN WEB</Text>
             <Text style={[styles.title, isMobile && styles.titleMobile, { color: colors.text }]}>Impostazioni</Text>
             <Text style={[styles.subtitle, { color: colors.secondary }]}>Tema, password e sicurezza dell’account amministratore.</Text>
@@ -205,6 +205,7 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 18, marginBottom: 20 },
   headerMobile: { flexDirection: "column", gap: 13 },
   headerCopy: { flex: 1, minWidth: 0 },
+  headerCopyMobile: { flexGrow: 0, flexShrink: 0, flexBasis: "auto", width: "100%", minWidth: 0 },
   eyebrow: { fontSize: 9, fontWeight: "900", letterSpacing: 1.2, marginBottom: 6 },
   title: { fontSize: 32, fontWeight: "900" },
   titleMobile: { fontSize: 26, lineHeight: 31 },

@@ -493,14 +493,14 @@ export default function AdminWebPaymentsScreen() {
               </View>
 
               <View style={styles.paymentAmountsRow}>
-                <View style={styles.paymentAmountBox}>
+                <View style={[styles.paymentAmountBox, isMobile && styles.paymentAmountBoxMobile]}>
                   <Text style={styles.paymentAmountLabel}>Pagato</Text>
                   <Text style={styles.paymentAmountValue}>€{safeAmountPaid}</Text>
                 </View>
 
                 <View style={styles.paymentAmountDivider} />
 
-                <View style={styles.paymentAmountBox}>
+                <View style={[styles.paymentAmountBox, isMobile && styles.paymentAmountBoxMobile]}>
                   <Text style={styles.paymentAmountLabel}>Residuo</Text>
                   <Text style={styles.paymentAmountValue}>€{safeRemainingAmount}</Text>
                 </View>
@@ -879,6 +879,7 @@ const createStyles = (colors: any, isDark: boolean, isMobile: boolean) =>
     paymentAmountBox: {
       flex: 1,
     },
+    paymentAmountBoxMobile: { flexGrow: 0, flexShrink: 0, flexBasis: "auto", width: "100%", minWidth: 0 },
 
     paymentAmountDivider: {
       width: 1,

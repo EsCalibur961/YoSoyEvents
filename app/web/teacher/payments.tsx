@@ -365,17 +365,17 @@ export default function TeacherWebPaymentsScreen() {
         </View>
 
         <View style={styles.quickStatsGrid}>
-          <View style={styles.quickStatBox}>
+          <View style={[styles.quickStatBox, isMobile && styles.quickStatBoxMobile]}>
             <Text style={styles.quickStatNumber}>{rooms.length}</Text>
             <Text style={styles.quickStatLabel}>Camere salvate</Text>
           </View>
 
-          <View style={styles.quickStatBox}>
+          <View style={[styles.quickStatBox, isMobile && styles.quickStatBoxMobile]}>
             <Text style={styles.quickStatNumber}>{paidRooms}</Text>
             <Text style={styles.quickStatLabel}>Saldate</Text>
           </View>
 
-          <View style={styles.quickStatBox}>
+          <View style={[styles.quickStatBox, isMobile && styles.quickStatBoxMobile]}>
             <Text style={styles.quickStatNumber}>{unpaidRooms}</Text>
             <Text style={styles.quickStatLabel}>Da saldare</Text>
           </View>
@@ -643,6 +643,7 @@ const createStyles = (colors: any, isDark: boolean, isMobile: boolean) =>
       borderWidth: 1,
       borderColor: colors.border,
     },
+    quickStatBoxMobile: { flexGrow: 0, flexShrink: 0, flexBasis: "auto", width: "100%", minWidth: 0 },
 
     quickStatNumber: {
       color: colors.onPrimary,

@@ -1661,8 +1661,10 @@ const createStyles = (colors: any, isDark: boolean, isMobile: boolean) => StyleS
   },
 
   liveStatBox: {
-    flexBasis: isMobile ? "47%" : undefined,
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: isMobile ? 150 : 0,
+    minWidth: isMobile ? 140 : 0,
     backgroundColor: colors.background,
     borderRadius: 18,
     padding: 12,
@@ -2014,7 +2016,11 @@ const createStyles = (colors: any, isDark: boolean, isMobile: boolean) => StyleS
   },
 
   activitySummaryItem: {
-    flex: 1,
+    flexGrow: isMobile ? 0 : 1,
+    flexShrink: isMobile ? 0 : 1,
+    flexBasis: isMobile ? "auto" : 0,
+    width: isMobile ? "100%" : undefined,
+    minWidth: 0,
     alignItems: "center",
   },
 

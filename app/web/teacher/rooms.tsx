@@ -2333,7 +2333,11 @@ const createStyles = (colors: any, isDark: boolean, isMobile: boolean) =>
     },
 
     statBox: {
-      flex: 1,
+      flexGrow: isMobile ? 0 : 1,
+      flexShrink: isMobile ? 0 : 1,
+      flexBasis: isMobile ? "auto" : 0,
+      width: isMobile ? "100%" : undefined,
+      minWidth: 0,
       borderRadius: 22,
       paddingVertical: 18,
       alignItems: "center",

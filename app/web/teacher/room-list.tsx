@@ -291,17 +291,17 @@ export default function TeacherWebRoomListScreen() {
           </Text>
 
           <View style={styles.summaryGrid}>
-            <View style={styles.summaryBox}>
+            <View style={[styles.summaryBox, isMobile && styles.summaryBoxMobile]}>
               <Text style={styles.summaryNumber}>{completeRooms.length}</Text>
               <Text style={styles.summaryLabel}>Camere</Text>
             </View>
 
-            <View style={styles.summaryBox}>
+            <View style={[styles.summaryBox, isMobile && styles.summaryBoxMobile]}>
               <Text style={styles.summaryNumber}>{totalGuests}</Text>
               <Text style={styles.summaryLabel}>Ospiti</Text>
             </View>
 
-            <View style={styles.summaryBox}>
+            <View style={[styles.summaryBox, isMobile && styles.summaryBoxMobile]}>
               <Text style={styles.summaryNumber}>€{totalAmount}</Text>
               <Text style={styles.summaryLabel}>Totale pack</Text>
             </View>
@@ -583,6 +583,7 @@ const createStyles = (colors: any, isDark: boolean, isMobile: boolean) => StyleS
     borderWidth: 1,
     borderColor: colors.border,
   },
+  summaryBoxMobile: { flexGrow: 0, flexShrink: 0, flexBasis: "auto", width: "100%", minWidth: 0 },
 
   summaryNumber: {
     color: colors.primary,

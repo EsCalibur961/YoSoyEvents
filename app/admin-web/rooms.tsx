@@ -521,10 +521,11 @@ export default function AdminWebRoomsScreen() {
 
         <View style={[styles.statsGrid, isMobile && styles.statsGridMobile]}>
           {roomTypes.map((type) => (
-            <View
-              key={type}
-              style={[
-                styles.statCard,
+              <View
+                key={type}
+                style={[
+                  styles.statCard,
+                  isMobile && styles.statCardMobile,
                 {
                   backgroundColor: colors.card,
                   borderColor: colors.border,
@@ -650,6 +651,7 @@ export default function AdminWebRoomsScreen() {
                     key={type}
                     style={[
                       styles.roomEditorCard,
+                      isMobile && styles.roomEditorCardMobile,
                       {
                         backgroundColor: colors.background,
                         borderColor: colors.border,
@@ -911,6 +913,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 15,
   },
+  statCardMobile: { flexGrow: 0, flexShrink: 0, flexBasis: "auto", width: "100%", minWidth: 0 },
 
   statIcon: {
     width: 38,
@@ -1013,6 +1016,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 14,
   },
+  roomEditorCardMobile: { flexGrow: 0, flexShrink: 0, flexBasis: "auto", width: "100%", minWidth: 0 },
 
   roomEditorTop: {
     flexDirection: "row",

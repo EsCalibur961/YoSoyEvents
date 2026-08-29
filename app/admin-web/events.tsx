@@ -1885,11 +1885,15 @@ const createStyles = (colors: any, isDark: boolean, isMobile: boolean) =>
     },
 
     desktopField: {
-      flex: 1,
+      ...(isMobile
+        ? { flexGrow: 0, flexShrink: 0, flexBasis: "auto" as const, width: "100%" as const, minWidth: 0 }
+        : { flex: 1 }),
     },
 
     desktopFieldWide: {
-      flex: 1.5,
+      ...(isMobile
+        ? { flexGrow: 0, flexShrink: 0, flexBasis: "auto" as const, width: "100%" as const, minWidth: 0 }
+        : { flex: 1.5 }),
     },
 
     packTopRow: {
@@ -1898,15 +1902,21 @@ const createStyles = (colors: any, isDark: boolean, isMobile: boolean) =>
     },
 
     packLetterField: {
-      flex: 0.55,
+      ...(isMobile
+        ? { flexGrow: 0, flexShrink: 0, flexBasis: "auto" as const, width: "100%" as const, minWidth: 0 }
+        : { flex: 0.55 }),
     },
 
     packPriceField: {
-      flex: 1,
+      ...(isMobile
+        ? { flexGrow: 0, flexShrink: 0, flexBasis: "auto" as const, width: "100%" as const, minWidth: 0 }
+        : { flex: 1 }),
     },
 
     packDescriptionField: {
-      flex: 2,
+      ...(isMobile
+        ? { flexGrow: 0, flexShrink: 0, flexBasis: "auto" as const, width: "100%" as const, minWidth: 0 }
+        : { flex: 2 }),
     },
 
     supplementRow: {
@@ -1915,7 +1925,9 @@ const createStyles = (colors: any, isDark: boolean, isMobile: boolean) =>
     },
 
     supplementField: {
-      flex: 1,
+      ...(isMobile
+        ? { flexGrow: 0, flexShrink: 0, flexBasis: "auto" as const, width: "100%" as const, minWidth: 0 }
+        : { flex: 1 }),
     },
 
     textArea: {
