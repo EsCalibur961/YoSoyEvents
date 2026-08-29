@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
 import { collection, doc, onSnapshot } from "firebase/firestore";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
   ScrollView,
@@ -62,6 +62,7 @@ export default function TeacherWebProfileScreen() {
   const styles = createStyles(colors, isDark, width < 700, width < 420);
   const [role, setRole] = useState<string | null>(null);
   const [teacherUsername, setTeacherUsername] = useState<string | null>(null);
+  const [profileImageFailed, setProfileImageFailed] = useState(false);
 
   const [adminProfile, setAdminProfile] = useState<AdminProfile>({
     name: "YoSoyEvents",
@@ -273,6 +274,8 @@ export default function TeacherWebProfileScreen() {
       ? currentTeacher?.profileImage || ""
       : adminProfile.image || "";
 
+  useEffect(() => setProfileImageFailed(false), [profileImage]);
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -335,8 +338,8 @@ export default function TeacherWebProfileScreen() {
             { backgroundColor: colors.cardAlt, borderColor: colors.border },
           ]}
         >
-          {profileImage ? (
-            <Image source={{ uri: profileImage }} style={styles.avatar} />
+          {profileImage && !profileImageFailed ? (
+            <Image source={{ uri: profileImage }} style={styles.avatar} resizeMode="cover" onError={() => setProfileImageFailed(true)} />
           ) : role === "admin" ? (
             <Image
               source={require("../../../assets/images/icon.png")}

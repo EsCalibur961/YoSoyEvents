@@ -1,13 +1,16 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { Slot, router, usePathname } from "expo-router";
+import { doc, onSnapshot } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
 import { useTheme } from "../../contexts/ThemeContext";
+import { db } from "../../firebase";
 
 const MENU = [
   ["Dashboard", "grid-outline", "/admin-web"], ["Eventi e artisti", "calendar-outline", "/admin-web/events"],
   ["Gestione stanze", "bed-outline", "/admin-web/rooms"], ["Maestri", "people-outline", "/admin-web/teachers"],
+  ["Stato maestri", "radio-outline", "/admin-web/teacher-status"],
   ["Camere maestri", "business-outline", "/admin-web/teacher-rooms"], ["Pagamenti", "wallet-outline", "/admin-web/payments"],
   ["Monitoraggio", "pulse-outline", "/admin-web/monitoring"], ["Richieste", "git-pull-request-outline", "/admin-web/requests"],
   ["Notifiche", "notifications-outline", "/admin-web/notifications"],
@@ -21,16 +24,26 @@ export default function AdminWebLayout() {
   const isMobile = width < 820;
   const [adminName, setAdminName] = useState("Amministratore");
   const [adminImage, setAdminImage] = useState("");
+  const [adminImageFailed, setAdminImageFailed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setAdminName((await AsyncStorage.getItem("adminName")) || (await AsyncStorage.getItem("loggedUserName")) || "Amministratore");
-        setAdminImage((await AsyncStorage.getItem("adminProfileImage")) || (await AsyncStorage.getItem("profileImage")) || "");
-      } catch { setAdminName("Amministratore"); setAdminImage(""); }
-    })();
-  }, [pathname]);
+  useEffect(
+    () =>
+      onSnapshot(
+        doc(db, "settings", "adminProfile"),
+        (snapshot) => {
+          const data = snapshot.exists() ? snapshot.data() : null;
+          setAdminName(data?.name || "Amministratore");
+          setAdminImage(data?.image || "");
+          setAdminImageFailed(false);
+        },
+        () => {
+          setAdminName("Amministratore");
+          setAdminImage("");
+        },
+      ),
+    [],
+  );
   useEffect(() => setMenuOpen(false), [pathname]);
 
   const goTo = (route: string) => { setMenuOpen(false); router.replace(route as never); };
@@ -52,7 +65,7 @@ export default function AdminWebLayout() {
     <View style={styles.brandCopy}><Text style={[styles.brandTitle, { color: colors.text }]}>YoSoyEvents</Text><Text style={[styles.brandSub, { color: colors.secondary }]}>Admin Web</Text></View>
   </View>;
   const renderAccount = () => <View style={[styles.accountFooter, { borderTopColor: colors.border }]}>
-    <View style={styles.accountRow}>{adminImage ? <Image source={{ uri: adminImage }} style={styles.avatar} /> : <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: `${colors.primary}16` }]}><Ionicons name="person-outline" size={19} color={colors.primary} /></View>}
+    <View style={styles.accountRow}>{adminImage && !adminImageFailed ? <Image source={{ uri: adminImage }} style={styles.avatar} resizeMode="cover" onError={() => setAdminImageFailed(true)} /> : <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: `${colors.primary}16` }]}><Ionicons name="person-outline" size={19} color={colors.primary} /></View>}
       <View style={styles.accountInfo}><Text numberOfLines={1} style={[styles.accountName, { color: colors.text }]}>{adminName}</Text><Text style={[styles.accountRole, { color: colors.secondary }]}>Amministratore</Text></View>
     </View>
     <TouchableOpacity style={[styles.logout, { backgroundColor: `${colors.danger}10`, borderColor: `${colors.danger}35` }]} onPress={handleLogout}><Ionicons name="log-out-outline" size={18} color={colors.danger} /><Text style={[styles.logoutText, { color: colors.danger }]}>Esci</Text></TouchableOpacity>
@@ -71,7 +84,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, flexDirection: "row", minHeight: "100vh" as any }, sidebar: { width: 245, borderRightWidth: 1, padding: 14 },
   brand: { flex: 1, flexDirection: "row", alignItems: "center" }, desktopBrand: { flex: 0, marginBottom: 18 }, brandCopy: { flex: 1, minWidth: 0 }, brandIcon: { width: 43, height: 43, borderRadius: 14, alignItems: "center", justifyContent: "center", marginRight: 10 }, brandTitle: { fontSize: 16, fontWeight: "900" }, brandSub: { fontSize: 10, fontWeight: "800", marginTop: 2 },
   menu: { flex: 1, paddingTop: 18 }, item: { minHeight: 47, borderRadius: 14, borderWidth: 1, paddingHorizontal: 8, marginBottom: 4, flexDirection: "row", alignItems: "center" }, itemIcon: { width: 33, height: 33, borderRadius: 10, alignItems: "center", justifyContent: "center", marginRight: 8 }, itemText: { flex: 1, fontSize: 11, fontWeight: "900" },
-  accountFooter: { borderTopWidth: 1, paddingTop: 11 }, accountRow: { minHeight: 50, flexDirection: "row", alignItems: "center", marginBottom: 8 }, avatar: { width: 39, height: 39, borderRadius: 12, marginRight: 9 }, avatarFallback: { alignItems: "center", justifyContent: "center" }, accountInfo: { flex: 1, minWidth: 0 }, accountName: { fontSize: 11, fontWeight: "900" }, accountRole: { fontSize: 9, fontWeight: "700", marginTop: 2 }, logout: { minHeight: 44, borderRadius: 12, borderWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "center" }, logoutText: { fontSize: 10, fontWeight: "900", marginLeft: 6 },
+  accountFooter: { borderTopWidth: 1, paddingTop: 11 }, accountRow: { minHeight: 50, flexDirection: "row", alignItems: "center", marginBottom: 8 }, avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 9 }, avatarFallback: { alignItems: "center", justifyContent: "center" }, accountInfo: { flex: 1, minWidth: 0 }, accountName: { fontSize: 11, fontWeight: "900" }, accountRole: { fontSize: 9, fontWeight: "700", marginTop: 2 }, logout: { minHeight: 44, borderRadius: 12, borderWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "center" }, logoutText: { fontSize: 10, fontWeight: "900", marginLeft: 6 },
   content: { flex: 1, width: "100%", minWidth: 0 }, mobileScreen: { flex: 1, minHeight: "100vh" as any, width: "100%" }, mobileHeader: { minHeight: 66, borderBottomWidth: 1, paddingHorizontal: 14, paddingVertical: 10, flexDirection: "row", alignItems: "center", position: "sticky" as any, top: 0, zIndex: 50 }, menuButton: { width: 44, height: 44, borderRadius: 13, borderWidth: 1, alignItems: "center", justifyContent: "center", marginLeft: 10 },
   modalRoot: { flex: 1, flexDirection: "row" }, overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.58)" }, drawer: { width: "86%", maxWidth: 345, height: "100%", borderRightWidth: 1, padding: 14, zIndex: 2 }, drawerHeader: { minHeight: 50, flexDirection: "row", alignItems: "center", marginBottom: 12 }, closeButton: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center", marginLeft: 8 }, drawerScroll: { flex: 1 }, drawerContent: { paddingBottom: 12 },
 });

@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { Slot, router, usePathname } from "expo-router";
-import { doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
   Image,
@@ -47,44 +47,42 @@ export default function TeacherWebLayout() {
   const isMobile = width < 820;
 
   const [teacher, setTeacher] = useState<TeacherProfile | null>(null);
+  const [teacherImageFailed, setTeacherImageFailed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    let active = true;
+    let unsubscribe = () => {};
 
-    const loadTeacher = async () => {
+    const subscribeTeacher = async () => {
       try {
         const teacherId = await AsyncStorage.getItem("teacherId");
         const teacherUsername = await AsyncStorage.getItem("teacherUsername");
 
         if (teacherId) {
-          const snap = await getDoc(doc(db, "teachers", teacherId));
-          if (snap.exists() && active) {
-            setTeacher({
-              id: snap.id,
-              ...(snap.data() as Omit<TeacherProfile, "id">),
-            });
-            return;
-          }
+          unsubscribe = onSnapshot(doc(db, "teachers", teacherId), (snapshot) => {
+            setTeacher(snapshot.exists() ? {
+              id: snapshot.id,
+              ...(snapshot.data() as Omit<TeacherProfile, "id">),
+            } : null);
+            setTeacherImageFailed(false);
+          }, () => setTeacher(null));
+          return;
         }
 
-        if (active && teacherUsername) {
+        if (teacherUsername) {
           setTeacher({
             id: "",
             username: teacherUsername,
           });
         }
       } catch {
-        if (active) setTeacher(null);
+        setTeacher(null);
       }
     };
 
-    loadTeacher();
-
-    return () => {
-      active = false;
-    };
-  }, [pathname]);
+    subscribeTeacher();
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -200,8 +198,8 @@ export default function TeacherWebLayout() {
         style={styles.accountRow}
         onPress={() => goTo("/web/teacher/profile")}
       >
-        {teacher?.profileImage ? (
-          <Image source={{ uri: teacher.profileImage }} style={styles.avatar} />
+        {teacher?.profileImage && !teacherImageFailed ? (
+          <Image source={{ uri: teacher.profileImage }} style={styles.avatar} resizeMode="cover" onError={() => setTeacherImageFailed(true)} />
         ) : (
           <View
             style={[
@@ -507,16 +505,16 @@ const styles = StyleSheet.create({
   },
 
   avatar: {
-    width: 39,
-    height: 39,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     marginRight: 9,
   },
 
   avatarFallback: {
-    width: 39,
-    height: 39,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     marginRight: 9,
     alignItems: "center",
     justifyContent: "center",

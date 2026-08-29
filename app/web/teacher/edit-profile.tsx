@@ -16,7 +16,7 @@ import {
   ref,
   uploadBytes,
 } from "firebase/storage";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Image,
   ScrollView,
@@ -59,6 +59,7 @@ export default function TeacherWebEditProfileScreen() {
   const [adminName, setAdminName] = useState("YoSoyEvents");
 
   const [image, setImage] = useState("");
+  const [imageFailed, setImageFailed] = useState(false);
   const [imagePath, setImagePath] = useState("");
 
   const [teachers, setTeachers] = useState<TeacherUser[]>([]);
@@ -66,6 +67,8 @@ export default function TeacherWebEditProfileScreen() {
 
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  useEffect(() => setImageFailed(false), [image]);
 
   useFocusEffect(
     useCallback(() => {
@@ -354,8 +357,8 @@ export default function TeacherWebEditProfileScreen() {
 
       <View style={styles.card}>
         <TouchableOpacity style={styles.avatarBox} onPress={pickImage}>
-          {image ? (
-            <Image source={{ uri: image }} style={styles.avatar} />
+          {image && !imageFailed ? (
+            <Image source={{ uri: image }} style={styles.avatar} resizeMode="cover" onError={() => setImageFailed(true)} />
           ) : (
             <View style={styles.emptyAvatar}>
               <Ionicons

@@ -5,6 +5,7 @@ import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
+  Image,
   Platform,
   ScrollView,
   StyleSheet,
@@ -27,6 +28,8 @@ export default function AdminWebSettingsScreen() {
   const isMobile = width < 700;
   const styles = createStyles(isMobile);
   const [adminPassword, setAdminPassword] = useState("admin");
+  const [adminProfile, setAdminProfile] = useState({ name: "Amministratore", image: "" });
+  const [adminImageFailed, setAdminImageFailed] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -39,6 +42,19 @@ export default function AdminWebSettingsScreen() {
     () =>
       onSnapshot(doc(db, "settings", "adminAuth"), (snapshot) => {
         if (snapshot.exists()) setAdminPassword(snapshot.data().password || "admin");
+      }),
+    [],
+  );
+
+  useEffect(
+    () =>
+      onSnapshot(doc(db, "settings", "adminProfile"), (snapshot) => {
+        const data = snapshot.exists() ? snapshot.data() : null;
+        setAdminProfile({
+          name: data?.name || "Amministratore",
+          image: data?.image || "",
+        });
+        setAdminImageFailed(false);
       }),
     [],
   );
@@ -144,11 +160,10 @@ export default function AdminWebSettingsScreen() {
         </View>
 
         <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.infoIcon, { backgroundColor: `${colors.primary}16` }]}>
-            <Ionicons name="shield-checkmark-outline" size={27} color={colors.primary} />
-          </View>
+          {adminProfile.image && !adminImageFailed ? <Image source={{ uri: adminProfile.image }} style={styles.adminAvatar} resizeMode="cover" onError={() => setAdminImageFailed(true)} /> : <View style={[styles.infoIcon, { backgroundColor: `${colors.primary}16` }]}><Ionicons name="person-outline" size={25} color={colors.primary} /></View>}
           <View style={styles.infoCopy}>
-            <Text style={[styles.infoTitle, { color: colors.text }]}>Account amministratore</Text>
+            <Text style={[styles.infoTitle, { color: colors.text }]}>{adminProfile.name}</Text>
+            <Text style={[styles.adminRole, { color: colors.secondary }]}>Amministratore</Text>
             <Text style={[styles.infoText, { color: colors.secondary }]}>Le modifiche alla password sono sincronizzate live.</Text>
           </View>
         </View>
@@ -198,8 +213,10 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
   backText: { fontSize: 10, fontWeight: "900", marginLeft: 6 },
   infoCard: { width: "100%", minWidth: 0, borderWidth: 1, borderRadius: 20, padding: 16, flexDirection: "row", alignItems: "center", marginBottom: 14 },
   infoIcon: { width: 48, height: 48, borderRadius: 15, alignItems: "center", justifyContent: "center", marginRight: 12 },
+  adminAvatar: { width: 48, height: 48, borderRadius: 24, marginRight: 12 },
   infoCopy: { flex: 1, minWidth: 0 },
   infoTitle: { fontSize: 15, fontWeight: "900" },
+  adminRole: { fontSize: 9, fontWeight: "800", marginTop: 2 },
   infoText: { fontSize: 10, lineHeight: 15, fontWeight: "700", marginTop: 3 },
   card: { width: "100%", minWidth: 0, borderWidth: 1, borderRadius: 20, padding: isMobile ? 14 : 18, marginBottom: 14 },
   cardTitle: { fontSize: 16, fontWeight: "900", marginBottom: 14 },

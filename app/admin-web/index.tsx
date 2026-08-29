@@ -363,6 +363,19 @@ export default function AdminWebScreen() {
                     Nessun Pack.
                   </Text>
                 )}
+
+                <TouchableOpacity
+                  style={[styles.eventDetailsButton, { backgroundColor: colors.primary }]}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/admin-web/event-details",
+                      params: { id: nextEvent.id },
+                    })
+                  }
+                >
+                  <Text style={[styles.eventDetailsButtonText, { color: colors.onPrimary }]}>Vedi dettagli</Text>
+                  <Ionicons name="arrow-forward-outline" size={15} color={colors.onPrimary} />
+                </TouchableOpacity>
               </View>
 
               <View
@@ -508,6 +521,12 @@ export default function AdminWebScreen() {
               Apri gestione maestri
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.openButton, { backgroundColor: colors.primary }]}
+            onPress={() => router.push("/admin-web/teacher-status")}
+          >
+            <Text style={[styles.openButtonText, { color: colors.onPrimary }]}>Vedi tutti i maestri</Text>
+          </TouchableOpacity>
         </View>
 
         <View
@@ -650,6 +669,8 @@ const styles = StyleSheet.create({
   packRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 5 },
   packLetter: { fontSize: 10, fontWeight: "900" },
   packPrice: { fontSize: 10, fontWeight: "900" },
+  eventDetailsButton: { width: "100%", minHeight: 40, borderRadius: 12, paddingHorizontal: 12, marginTop: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  eventDetailsButtonText: { fontSize: 10, fontWeight: "900" },
   artistRow: { flexDirection: "row", gap: 10 },
   artist: { width: 72 },
   artistImage: { width: 54, height: 54, borderRadius: 15, marginBottom: 5 },

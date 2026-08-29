@@ -348,6 +348,19 @@ export default function TeacherWebHome() {
               {nextEvent.description || "Nessuna descrizione disponibile."}
             </Text>
 
+            <TouchableOpacity
+              style={[styles.eventDetailsButton, { backgroundColor: colors.primary }]}
+              onPress={() =>
+                router.push({
+                  pathname: "/web/teacher/event-details",
+                  params: { id: nextEvent.id },
+                })
+              }
+            >
+              <Text style={[styles.eventDetailsButtonText, { color: colors.onPrimary }]}>Vedi dettagli</Text>
+              <Ionicons name="arrow-forward-outline" size={17} color={colors.onPrimary} />
+            </TouchableOpacity>
+
             <View style={[styles.eventInfoGrid, isMobile && styles.eventInfoGridMobile]}>
               <View
                 style={[
@@ -657,6 +670,8 @@ const styles = StyleSheet.create({
   eventTitle: { fontSize: 27, fontWeight: "900" },
   eventMeta: { fontSize: 11, fontWeight: "800", marginTop: 5 },
   eventDescription: { fontSize: 12, lineHeight: 18, fontWeight: "700", marginTop: 10 },
+  eventDetailsButton: { alignSelf: "flex-start", minHeight: 43, borderRadius: 13, paddingHorizontal: 16, marginTop: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
+  eventDetailsButtonText: { fontSize: 11, fontWeight: "900" },
 
   eventInfoGrid: { flexDirection: "row", gap: 12, marginTop: 18 },
   packPanel: { flex: 0.9, borderWidth: 1, borderRadius: 18, padding: 14 },
