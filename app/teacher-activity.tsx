@@ -19,6 +19,8 @@ import {
 import { db } from "../firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import { useFeedback } from "../contexts/FeedbackContext";
+import { ProfileAvatar } from "../components/ProfileAvatar";
+import { getTeacherProfileImage } from "../utils/profileImages";
 
 type RoomType = "Doppia" | "Tripla" | "Quadrupla";
 
@@ -68,6 +70,7 @@ type TeacherUser = {
   danceSchool: string;
   isOnline?: boolean;
   lastSeen?: any;
+  profileImage?: string;
 };
 
 type Guest = {
@@ -1051,22 +1054,7 @@ export default function TeacherActivityScreen() {
                         setTeacherSearch("");
                       }}
                     >
-                      <View
-                        style={[
-                          styles.pickerAvatar,
-                          {
-                            backgroundColor: online
-                              ? `${colors.success}18`
-                              : colors.cardAlt,
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name="person-outline"
-                          size={20}
-                          color={online ? colors.success : colors.secondary}
-                        />
-                      </View>
+                      <ProfileAvatar uri={getTeacherProfileImage(teacher as unknown as Record<string, unknown>)} size={42} color={online ? colors.success : colors.secondary} backgroundColor={online ? `${colors.success}18` : colors.cardAlt} style={styles.pickerAvatar} />
 
                       <View style={styles.pickerTeacherInfo}>
                         <Text style={styles.pickerTeacherName}>

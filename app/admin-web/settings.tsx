@@ -19,6 +19,7 @@ import {
 import { useFeedback } from "../../contexts/FeedbackContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { db } from "../../firebase";
+import { getAdminProfileImage } from "../../utils/profileImages";
 import { hashPassword } from "../../utils/hash";
 
 export default function AdminWebSettingsScreen() {
@@ -52,7 +53,7 @@ export default function AdminWebSettingsScreen() {
         const data = snapshot.exists() ? snapshot.data() : null;
         setAdminProfile({
           name: data?.name || "Amministratore",
-          image: data?.image || "",
+          image: getAdminProfileImage(data as Record<string, unknown> | null),
         });
         setAdminImageFailed(false);
       }),

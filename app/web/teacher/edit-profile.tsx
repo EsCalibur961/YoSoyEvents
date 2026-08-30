@@ -30,6 +30,7 @@ import {
 import { useTheme } from "../../../contexts/ThemeContext";
 import { useFeedback } from "../../../contexts/FeedbackContext";
 import { db, storage } from "../../../firebase";
+import { getAdminProfileImage, getTeacherProfileImage } from "../../../utils/profileImages";
 
 type AdminProfile = {
   name?: string;
@@ -88,7 +89,7 @@ export default function TeacherWebEditProfileScreen() {
           setAdminName(data.name || "YoSoyEvents");
 
           if (role !== "teacher") {
-            setImage(data.image || "");
+            setImage(getAdminProfileImage(data as Record<string, unknown>));
             setImagePath(data.imagePath || "");
           }
         },
@@ -122,7 +123,7 @@ export default function TeacherWebEditProfileScreen() {
       );
 
       if (currentTeacher) {
-        setImage(currentTeacher.profileImage || "");
+        setImage(getTeacherProfileImage(currentTeacher as unknown as Record<string, unknown>));
         setImagePath(currentTeacher.profileImagePath || "");
       }
     }, [role, teacherUsername, teachers]),

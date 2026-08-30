@@ -4,6 +4,7 @@ import { Slot, router, usePathname } from "expo-router";
 import { doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Modal,
   Pressable,
@@ -17,6 +18,7 @@ import {
 
 import { useTheme } from "../../../contexts/ThemeContext";
 import { db } from "../../../firebase";
+import { getTeacherProfileImage } from "../../../utils/profileImages";
 
 const MENU = [
   ["Home", "home-outline", "/web/teacher"],
@@ -49,8 +51,51 @@ export default function TeacherWebLayout() {
   const [teacher, setTeacher] = useState<TeacherProfile | null>(null);
   const [teacherImageFailed, setTeacherImageFailed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sessionAuthorized, setSessionAuthorized] = useState(false);
 
   useEffect(() => {
+    let active = true;
+
+    const verifySession = async () => {
+      try {
+        const values = await AsyncStorage.multiGet([
+          "isLogged",
+          "loggedUser",
+          "teacherId",
+          "teacherUsername",
+        ]);
+        if (!active) return;
+
+        const session = Object.fromEntries(values);
+        if (session.isLogged !== "true" || !session.loggedUser) {
+          router.replace("/web/login");
+          return;
+        }
+
+        if (session.loggedUser === "admin") {
+          router.replace("/admin-web");
+          return;
+        }
+
+        const hasTeacherIdentity = Boolean(session.teacherId || session.teacherUsername);
+        if (session.loggedUser !== "teacher" || !hasTeacherIdentity) {
+          router.replace("/web/login");
+          return;
+        }
+
+        setSessionAuthorized(true);
+      } catch {
+        if (active) router.replace("/web/login");
+      }
+    };
+
+    verifySession();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!sessionAuthorized) return;
+
     let unsubscribe = () => {};
 
     const subscribeTeacher = async () => {
@@ -82,15 +127,11 @@ export default function TeacherWebLayout() {
 
     subscribeTeacher();
     return () => unsubscribe();
-  }, []);
+  }, [sessionAuthorized]);
 
   useEffect(() => {
     setMenuOpen(false);
   }, [pathname]);
-
-  if (pathname === "/web/teacher/change-password") {
-    return <Slot />;
-  }
 
   const teacherName =
     `${teacher?.firstName || ""} ${teacher?.lastName || ""}`.trim() ||
@@ -114,10 +155,13 @@ export default function TeacherWebLayout() {
       }
 
       await AsyncStorage.multiRemove([
+        "isLogged",
         "loggedUser",
         "teacherUsername",
         "teacherId",
         "teacherName",
+        "teacherFullName",
+        "danceSchool",
         "loggedUserName",
         "profileImage",
       ]);
@@ -198,8 +242,8 @@ export default function TeacherWebLayout() {
         style={styles.accountRow}
         onPress={() => goTo("/web/teacher/profile")}
       >
-        {teacher?.profileImage && !teacherImageFailed ? (
-          <Image source={{ uri: teacher.profileImage }} style={styles.avatar} resizeMode="cover" onError={() => setTeacherImageFailed(true)} />
+        {getTeacherProfileImage(teacher as unknown as Record<string, unknown>) && !teacherImageFailed ? (
+          <Image key={getTeacherProfileImage(teacher as unknown as Record<string, unknown>)} source={{ uri: getTeacherProfileImage(teacher as unknown as Record<string, unknown>) }} style={styles.avatar} resizeMode="cover" onError={() => setTeacherImageFailed(true)} />
         ) : (
           <View
             style={[
@@ -259,6 +303,14 @@ export default function TeacherWebLayout() {
       </TouchableOpacity>
     </View>
   );
+
+  if (!sessionAuthorized) {
+    return <View style={[styles.authLoader, { backgroundColor: colors.background }]}><ActivityIndicator size="small" color={colors.primary} /></View>;
+  }
+
+  if (pathname === "/web/teacher/change-password") {
+    return <Slot />;
+  }
 
   if (isMobile) {
     return (
@@ -424,6 +476,13 @@ export default function TeacherWebLayout() {
 }
 
 const styles = StyleSheet.create({
+  authLoader: {
+    flex: 1,
+    minHeight: "100vh" as any,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   screen: {
     flex: 1,
     flexDirection: "row",

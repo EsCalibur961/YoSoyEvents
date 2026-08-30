@@ -19,6 +19,8 @@ import {
 import { useTheme } from "../contexts/ThemeContext";
 import { useFeedback } from "../contexts/FeedbackContext";
 import { db } from "../firebase";
+import { ProfileAvatar } from "../components/ProfileAvatar";
+import { getTeacherProfileImage } from "../utils/profileImages";
 
 type RoomType = "Doppia" | "Tripla" | "Quadrupla";
 
@@ -28,6 +30,7 @@ type TeacherUser = {
   firstName?: string;
   lastName?: string;
   danceSchool?: string;
+  profileImage?: string;
 };
 
 type RoomAssignment = {
@@ -663,9 +666,7 @@ export default function ManageRoomsScreen() {
                   onPress={() => selectTeacher(teacher)}
                   activeOpacity={0.8}
                 >
-                  <View style={styles.compactTeacherAvatar}>
-                    <Ionicons name="person-outline" size={20} color={colors.primary} />
-                  </View>
+                  <ProfileAvatar uri={getTeacherProfileImage(teacher as unknown as Record<string, unknown>)} size={40} color={colors.primary} backgroundColor={colors.cardAlt} style={styles.compactTeacherAvatar} />
 
                   <View style={styles.compactTeacherInfo}>
                     <Text style={styles.compactTeacherName} numberOfLines={1}>

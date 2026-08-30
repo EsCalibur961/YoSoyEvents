@@ -20,6 +20,8 @@ import {
 import { useTheme } from "../../contexts/ThemeContext";
 import { useFeedback } from "../../contexts/FeedbackContext";
 import { db } from "../../firebase";
+import { ProfileAvatar } from "../../components/ProfileAvatar";
+import { getTeacherProfileImage } from "../../utils/profileImages";
 
 type RoomType = "Doppia" | "Tripla" | "Quadrupla";
 
@@ -29,6 +31,7 @@ type TeacherUser = {
   firstName?: string;
   lastName?: string;
   danceSchool?: string;
+  profileImage?: string;
 };
 
 type RoomAssignment = {
@@ -462,14 +465,7 @@ export default function AdminWebRoomsScreen() {
                 ]}
                 onPress={() => selectTeacher(teacher)}
               >
-                <View
-                  style={[
-                    styles.avatar,
-                    { backgroundColor: `${colors.primary}12` },
-                  ]}
-                >
-                  <Ionicons name="person-outline" size={18} color={colors.primary} />
-                </View>
+                <ProfileAvatar uri={getTeacherProfileImage(teacher as unknown as Record<string, unknown>)} size={38} color={colors.primary} backgroundColor={`${colors.primary}12`} style={styles.avatar} />
 
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text

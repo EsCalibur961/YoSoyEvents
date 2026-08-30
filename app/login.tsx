@@ -29,6 +29,7 @@ import {
 import { useTheme } from "../contexts/ThemeContext";
 import { db } from "../firebase";
 import { registerForPushNotificationsAsync } from "../services/pushNotifications";
+import { migrateLegacyAdminProfile } from "../services/profileSync";
 import { hashPassword } from "../utils/hash";
 
 type TeacherUser = {
@@ -95,6 +96,7 @@ export default function LoginScreen() {
 
         await AsyncStorage.setItem("isLogged", "true");
         await AsyncStorage.setItem("loggedUser", "admin");
+        await migrateLegacyAdminProfile();
 
         await AsyncStorage.removeItem("teacherUsername");
         await AsyncStorage.removeItem("teacherId");

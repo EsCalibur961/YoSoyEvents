@@ -21,6 +21,8 @@ import {
 import { useTheme } from "../../contexts/ThemeContext";
 import { useFeedback } from "../../contexts/FeedbackContext";
 import { db } from "../../firebase";
+import { ProfileAvatar } from "../../components/ProfileAvatar";
+import { getTeacherProfileImage } from "../../utils/profileImages";
 
 type RoomType = "Doppia" | "Tripla" | "Quadrupla";
 
@@ -30,6 +32,7 @@ type TeacherUser = {
   firstName?: string;
   lastName?: string;
   danceSchool?: string;
+  profileImage?: string;
 };
 
 type Guest = {
@@ -386,9 +389,7 @@ export default function AdminWebPaymentsScreen() {
                 style={styles.compactTeacherButton}
                 onPress={() => selectTeacher(teacher)}
               >
-                <View style={styles.compactTeacherAvatar}>
-                  <Ionicons name="person-outline" size={19} color={colors.primary} />
-                </View>
+                <ProfileAvatar uri={getTeacherProfileImage(teacher as unknown as Record<string, unknown>)} size={40} color={colors.primary} backgroundColor={colors.cardAlt} style={styles.compactTeacherAvatar} />
 
                 <View style={styles.teacherInfo}>
                   <Text style={styles.compactTeacherName} numberOfLines={1}>

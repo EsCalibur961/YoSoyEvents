@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
 import { collection, doc, onSnapshot } from "firebase/firestore";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
   ScrollView,
@@ -14,6 +14,7 @@ import {
 
 import { useTheme } from "../../contexts/ThemeContext";
 import { db } from "../../firebase";
+import { getAdminProfileImage, getTeacherProfileImage } from "../../utils/profileImages";
 
 type TeacherUser = {
   id: string;
@@ -59,6 +60,7 @@ export default function ProfileScreen() {
   const { colors, isDark } = useTheme();
   const styles = createStyles(colors, isDark);
   const [role, setRole] = useState<string | null>(null);
+  const [profileImageFailed, setProfileImageFailed] = useState(false);
   const [teacherUsername, setTeacherUsername] = useState<string | null>(null);
 
   const [adminProfile, setAdminProfile] = useState<AdminProfile>({
@@ -181,6 +183,7 @@ export default function ProfileScreen() {
 
       setRole(savedRole);
       setTeacherUsername(savedTeacherUsername);
+
     } catch {
       setRole(null);
       setTeacherUsername(null);
@@ -268,8 +271,10 @@ export default function ProfileScreen() {
 
   const profileImage =
     role === "teacher"
-      ? currentTeacher?.profileImage || ""
-      : adminProfile.image || "";
+      ? getTeacherProfileImage(currentTeacher as unknown as Record<string, unknown>)
+      : getAdminProfileImage(adminProfile as Record<string, unknown>);
+
+  useEffect(() => setProfileImageFailed(false), [profileImage]);
 
   return (
     <ScrollView
@@ -321,14 +326,8 @@ export default function ProfileScreen() {
             { backgroundColor: colors.cardAlt, borderColor: colors.border },
           ]}
         >
-          {profileImage ? (
-            <Image source={{ uri: profileImage }} style={styles.avatar} />
-          ) : role === "admin" ? (
-            <Image
-              source={require("../../assets/images/icon.png")}
-              style={styles.avatar}
-              resizeMode="contain"
-            />
+          {profileImage && !profileImageFailed ? (
+            <Image key={profileImage} source={{ uri: profileImage }} style={styles.avatar} resizeMode="cover" onError={() => setProfileImageFailed(true)} />
           ) : (
             <Ionicons name="person" size={58} color={colors.secondary} />
           )}

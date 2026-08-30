@@ -25,7 +25,9 @@ import {
 import { useTheme } from "../../contexts/ThemeContext";
 import { useFeedback } from "../../contexts/FeedbackContext";
 import { db } from "../../firebase";
+import { ProfileAvatar } from "../../components/ProfileAvatar";
 import { hashPassword } from "../../utils/hash";
+import { getTeacherProfileImage } from "../../utils/profileImages";
 
 type TeacherUser = {
   id: string;
@@ -563,9 +565,7 @@ Al primo accesso ti verrà richiesto di cambiare password.`;
                     onPress={() => editTeacher(teacher)}
                     activeOpacity={0.8}
                   >
-                    <View style={styles.compactAvatar}>
-                      <Ionicons name="person-outline" size={21} color={colors.primary} />
-                    </View>
+                    <ProfileAvatar uri={getTeacherProfileImage(teacher as unknown as Record<string, unknown>)} size={42} color={colors.primary} backgroundColor={colors.cardAlt} style={styles.compactAvatar} />
 
                     <View style={styles.compactTeacherInfo}>
                       <Text style={styles.compactTeacherName} numberOfLines={1}>

@@ -12,7 +12,7 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -30,6 +30,7 @@ import {
 import { useTheme } from "../../contexts/ThemeContext";
 import { db } from "../../firebase";
 import { registerForPushNotificationsAsync } from "../../services/pushNotifications";
+import { migrateLegacyAdminProfile } from "../../services/profileSync";
 import { hashPassword } from "../../utils/hash";
 
 type TeacherUser = {
@@ -55,6 +56,42 @@ export default function WebLoginScreen() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [sessionChecking, setSessionChecking] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    const redirectValidSession = async () => {
+      try {
+        const values = await AsyncStorage.multiGet([
+          "isLogged",
+          "loggedUser",
+          "teacherId",
+          "teacherUsername",
+        ]);
+        if (!active) return;
+
+        const session = Object.fromEntries(values);
+        if (session.isLogged === "true" && session.loggedUser === "admin") {
+          router.replace("/admin-web");
+          return;
+        }
+
+        const hasTeacherIdentity = Boolean(session.teacherId || session.teacherUsername);
+        if (session.isLogged === "true" && session.loggedUser === "teacher" && hasTeacherIdentity) {
+          router.replace("/web/teacher");
+          return;
+        }
+
+        setSessionChecking(false);
+      } catch {
+        if (active) setSessionChecking(false);
+      }
+    };
+
+    redirectValidSession();
+    return () => { active = false; };
+  }, []);
 
   const goToTeacherWeb = () => {
     setTimeout(() => {
@@ -103,6 +140,7 @@ export default function WebLoginScreen() {
 
         await AsyncStorage.setItem("isLogged", "true");
         await AsyncStorage.setItem("loggedUser", "admin");
+        await migrateLegacyAdminProfile();
 
         await AsyncStorage.removeItem("teacherUsername");
         await AsyncStorage.removeItem("teacherId");
@@ -203,6 +241,10 @@ export default function WebLoginScreen() {
       );
     }
   };
+
+  if (sessionChecking) {
+    return <View style={[styles.sessionLoader, { backgroundColor: colors.background }]}><ActivityIndicator size="small" color={colors.primary} /></View>;
+  }
 
   return (
     <KeyboardAvoidingView
@@ -307,6 +349,7 @@ const createStyles = (colors: any, isDark: boolean, isMobileSmall: boolean) =>
       flex: 1,
       backgroundColor: colors.background,
     },
+    sessionLoader: { flex: 1, minHeight: "100vh" as any, width: "100%", alignItems: "center", justifyContent: "center" },
 
     scroll: {
       flex: 1,

@@ -15,6 +15,7 @@ import {
 
 import { useTheme } from "../../../contexts/ThemeContext";
 import { db } from "../../../firebase";
+import { getAdminProfileImage, getTeacherProfileImage } from "../../../utils/profileImages";
 
 type TeacherUser = {
   id: string;
@@ -271,8 +272,8 @@ export default function TeacherWebProfileScreen() {
 
   const profileImage =
     role === "teacher"
-      ? currentTeacher?.profileImage || ""
-      : adminProfile.image || "";
+      ? getTeacherProfileImage(currentTeacher as unknown as Record<string, unknown>)
+      : getAdminProfileImage(adminProfile as Record<string, unknown>);
 
   useEffect(() => setProfileImageFailed(false), [profileImage]);
 

@@ -16,7 +16,7 @@ import {
   ref,
   uploadBytes,
 } from "firebase/storage";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Image,
   ScrollView,
@@ -29,6 +29,7 @@ import {
 import { useTheme } from "../contexts/ThemeContext";
 import { useFeedback } from "../contexts/FeedbackContext";
 import { db, storage } from "../firebase";
+import { getAdminProfileImage, getTeacherProfileImage } from "../utils/profileImages";
 
 type AdminProfile = {
   name?: string;
@@ -57,6 +58,7 @@ export default function EditProfileScreen() {
   const [adminName, setAdminName] = useState("YoSoyEvents");
 
   const [image, setImage] = useState("");
+  const [imageFailed, setImageFailed] = useState(false);
   const [imagePath, setImagePath] = useState("");
 
   const [teachers, setTeachers] = useState<TeacherUser[]>([]);
@@ -64,6 +66,8 @@ export default function EditProfileScreen() {
 
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  useEffect(() => setImageFailed(false), [image]);
 
   useFocusEffect(
     useCallback(() => {
@@ -83,7 +87,7 @@ export default function EditProfileScreen() {
           setAdminName(data.name || "YoSoyEvents");
 
           if (role !== "teacher") {
-            setImage(data.image || "");
+            setImage(getAdminProfileImage(data as Record<string, unknown>));
             setImagePath(data.imagePath || "");
           }
         },
@@ -117,7 +121,7 @@ export default function EditProfileScreen() {
       );
 
       if (currentTeacher) {
-        setImage(currentTeacher.profileImage || "");
+        setImage(getTeacherProfileImage(currentTeacher as unknown as Record<string, unknown>));
         setImagePath(currentTeacher.profileImagePath || "");
       }
     }, [role, teacherUsername, teachers]),
@@ -131,6 +135,7 @@ export default function EditProfileScreen() {
     setRole(savedRole);
     setTeacherUsername(savedTeacherUsername);
     setTeacherId(savedTeacherId);
+
   };
 
   const currentTeacher = teachers.find(
@@ -234,6 +239,7 @@ export default function EditProfileScreen() {
           });
         }
       } else {
+        await AsyncStorage.multiRemove(["adminProfileImage", "profileImage"]);
         await setDoc(
           doc(db, "settings", "adminProfile"),
           {
@@ -348,8 +354,8 @@ export default function EditProfileScreen() {
 
       <View style={styles.card}>
         <TouchableOpacity style={styles.avatarBox} onPress={pickImage}>
-          {image ? (
-            <Image source={{ uri: image }} style={styles.avatar} />
+          {image && !imageFailed ? (
+            <Image key={image} source={{ uri: image }} style={styles.avatar} resizeMode="cover" onError={() => setImageFailed(true)} />
           ) : (
             <View style={styles.emptyAvatar}>
               <Ionicons

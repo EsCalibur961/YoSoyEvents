@@ -10,6 +10,7 @@ import { ThemeProvider } from "../contexts/ThemeContext";
 import { FeedbackProvider } from "../contexts/FeedbackContext";
 import { db } from "../firebase";
 import { setupPushNotificationHandler, sendPushNotificationsToRoleAsync } from "../services/pushNotifications";
+import { migrateLegacyAdminProfile } from "../services/profileSync";
 
 const getTeacherFullName = (teacherData: any) => {
   const fullName = `${teacherData?.firstName || ""} ${teacherData?.lastName || ""}`.trim();
@@ -144,6 +145,7 @@ export default function RootLayout() {
 
     checkConnection();
     checkForLiveUpdate();
+    migrateLegacyAdminProfile().catch((error) => console.log("Migrazione profilo Admin non applicata:", error));
 
     const netInfoSubscription = NetInfo.addEventListener((state) => {
       const connected =

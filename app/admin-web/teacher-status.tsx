@@ -6,6 +6,7 @@ import { Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWi
 
 import { useTheme } from "../../contexts/ThemeContext";
 import { db } from "../../firebase";
+import { getTeacherProfileImage } from "../../utils/profileImages";
 
 type TeacherUser = { id: string; username?: string; firstName?: string; lastName?: string; danceSchool?: string; profileImage?: string; isOnline?: boolean; lastSeen?: any };
 type PresenceFilter = "all" | "online" | "offline";
@@ -72,7 +73,7 @@ export default function AdminTeacherStatusScreen() {
     <View style={styles.resultsHeader}><Text style={[styles.resultsTitle, { color: colors.text }]}>{filteredTeachers.length} maestri</Text><Text style={[styles.threshold, { color: colors.secondary }]}>Online: attività negli ultimi 90 secondi</Text></View>
     <View style={styles.grid}>{filteredTeachers.map((teacher) => {
       const online = isReallyOnline(teacher);
-      const profileImage = teacher.profileImage?.trim() || null;
+      const profileImage = getTeacherProfileImage(teacher as unknown as Record<string, unknown>) || null;
       const showProfileImage = Boolean(profileImage && brokenTeacherImages[teacher.id] !== profileImage);
 
       return <View key={teacher.id} style={[styles.teacherCard, isMobile && styles.teacherCardMobile, { backgroundColor: colors.card, borderColor: colors.border }]}><View style={styles.teacherTop}>{showProfileImage ? <Image key={`${teacher.id}-${profileImage}`} source={{ uri: profileImage! }} style={styles.avatar} resizeMode="cover" onError={() => setBrokenTeacherImages((current) => ({ ...current, [teacher.id]: profileImage! }))} /> : <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: `${colors.primary}14` }]}><Ionicons name="person-outline" size={22} color={colors.primary} /></View>}<View style={styles.teacherCopy}><Text numberOfLines={1} style={[styles.name, { color: colors.text }]}>{fullName(teacher)}</Text><Text numberOfLines={1} style={[styles.username, { color: colors.secondary }]}>@{teacher.username || "-"}</Text></View><View style={[styles.badge, { backgroundColor: `${online ? colors.success : colors.danger}14` }]}><View style={[styles.dot, { backgroundColor: online ? colors.success : colors.danger }]} /><Text style={[styles.badgeText, { color: online ? colors.success : colors.danger }]}>{online ? "Online" : "Offline"}</Text></View></View><View style={[styles.info, { borderTopColor: colors.border }]}><View style={styles.infoRow}><Ionicons name="school-outline" size={16} color={colors.primary} /><Text numberOfLines={2} style={[styles.infoText, { color: colors.text }]}>{teacher.danceSchool || "Scuola non inserita"}</Text></View><View style={styles.infoRow}><Ionicons name="time-outline" size={16} color={colors.secondary} /><Text style={[styles.lastSeen, { color: colors.secondary }]}>{formatLastSeen(teacher.lastSeen)}</Text></View></View></View>;
