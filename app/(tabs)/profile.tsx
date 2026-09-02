@@ -380,7 +380,7 @@ export default function ProfileScreen() {
             <MenuItem icon="wallet-outline" title="Pagamenti" onPress={() => router.push("/admin-teacher-payments")} />
             <MenuItem icon="bed-outline" title="Stanze" onPress={() => router.push("/manage-rooms")} />
             <MenuItem icon="pulse-outline" title="Monitoraggio" onPress={() => router.push("/teacher-activity")} />
-            <MenuItem icon="albums-outline" title="Camere maestri" onPress={() => router.push("/admin-teacher-rooms")} />
+            <MenuItem icon="albums-outline" title="Camere Allievi" onPress={() => router.push("/admin-teacher-rooms")} />
             <MenuItem
               icon="git-pull-request-outline"
               title="Richieste"
