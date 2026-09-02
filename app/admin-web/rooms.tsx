@@ -6,7 +6,7 @@ import {
   serverTimestamp,
   setDoc,
 } from "firebase/firestore";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -60,6 +60,11 @@ type RoomSettings = {
 
 const roomTypes: RoomType[] = ["Doppia", "Tripla", "Quadrupla"];
 
+const toNumber = (value: string) => {
+  const number = Number(value || 0);
+  return Number.isNaN(number) ? 0 : number;
+};
+
 export default function AdminWebRoomsScreen() {
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
@@ -78,7 +83,9 @@ export default function AdminWebRoomsScreen() {
 
   const [selectedTeacher, setSelectedTeacher] = useState<TeacherUser | null>(null);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "assigned" | "unassigned">("all");
+  const [filter, setFilter] = useState<
+    "all" | "assigned" | "unassigned" | "pending"
+  >("all");
 
   const [assignDoppie, setAssignDoppie] = useState("");
   const [assignTriple, setAssignTriple] = useState("");
@@ -139,18 +146,18 @@ export default function AdminWebRoomsScreen() {
     };
   }, []);
 
-  const getTeacherFullName = (teacher?: TeacherUser | null) => {
+  const getTeacherFullName = useCallback((teacher?: TeacherUser | null) => {
     if (!teacher) return "Maestro";
     const fullName = `${teacher.firstName || ""} ${teacher.lastName || ""}`.trim();
     return fullName || teacher.username || "Maestro";
-  };
+  }, []);
 
-  const getAssignmentForTeacher = (username?: string) => {
+  const getAssignmentForTeacher = useCallback((username?: string) => {
     if (!username) return null;
     return (
       assignments.find((item) => item.teacherUsername === username) || null
     );
-  };
+  }, [assignments]);
 
   const completedByTeacher = useMemo(() => {
     return roomsData
@@ -169,7 +176,7 @@ export default function AdminWebRoomsScreen() {
       }, {} as Record<string, Record<RoomType, number>>);
   }, [roomsData]);
 
-  const getCompleted = (username?: string) => {
+  const getCompleted = useCallback((username?: string) => {
     if (!username) return { Doppia: 0, Tripla: 0, Quadrupla: 0 };
     return (
       completedByTeacher[username] || {
@@ -178,7 +185,7 @@ export default function AdminWebRoomsScreen() {
         Quadrupla: 0,
       }
     );
-  };
+  }, [completedByTeacher]);
 
   const reservedTotals = useMemo(() => {
     return assignments.reduce(
@@ -194,19 +201,72 @@ export default function AdminWebRoomsScreen() {
       },
       { Doppia: 0, Tripla: 0, Quadrupla: 0 } as Record<RoomType, number>,
     );
-  }, [assignments, completedByTeacher]);
+  }, [assignments, getCompleted]);
 
-  const remainingTotals = {
+  const draftQuantities: Record<RoomType, number> = {
+    Doppia: toNumber(assignDoppie),
+    Tripla: toNumber(assignTriple),
+    Quadrupla: toNumber(assignQuadruple),
+  };
+
+  const selectedAssignment = getAssignmentForTeacher(selectedTeacher?.username);
+  const selectedCompleted = getCompleted(selectedTeacher?.username);
+  const hasUnsavedChanges = Boolean(
+    selectedTeacher &&
+      roomTypes.some(
+        (type) =>
+          draftQuantities[type] !==
+          Number(selectedAssignment?.quantities?.[type] || 0),
+      ),
+  );
+
+  const projectedReservedTotals = (() => {
+    if (!selectedTeacher?.username) return reservedTotals;
+
+    return assignments.reduce(
+      (acc, assignment) => {
+        const completed = getCompleted(assignment.teacherUsername);
+
+        roomTypes.forEach((type) => {
+          const assigned =
+            assignment.teacherUsername === selectedTeacher.username
+              ? draftQuantities[type]
+              : Number(assignment.quantities?.[type] || 0);
+          acc[type] += Math.max(assigned, completed[type]);
+        });
+
+        return acc;
+      },
+      assignments.some(
+        (assignment) =>
+          assignment.teacherUsername === selectedTeacher.username,
+      )
+        ? ({ Doppia: 0, Tripla: 0, Quadrupla: 0 } as Record<RoomType, number>)
+        : ({
+            Doppia: Math.max(draftQuantities.Doppia, selectedCompleted.Doppia),
+            Tripla: Math.max(draftQuantities.Tripla, selectedCompleted.Tripla),
+            Quadrupla: Math.max(
+              draftQuantities.Quadrupla,
+              selectedCompleted.Quadrupla,
+            ),
+          } as Record<RoomType, number>),
+    );
+  })();
+
+  const projectedRemainingTotals: Record<RoomType, number> = {
     Doppia: Math.max(
-      Number(settings.totalRooms?.Doppia || 0) - reservedTotals.Doppia,
+      Number(settings.totalRooms?.Doppia || 0) -
+        projectedReservedTotals.Doppia,
       0,
     ),
     Tripla: Math.max(
-      Number(settings.totalRooms?.Tripla || 0) - reservedTotals.Tripla,
+      Number(settings.totalRooms?.Tripla || 0) -
+        projectedReservedTotals.Tripla,
       0,
     ),
     Quadrupla: Math.max(
-      Number(settings.totalRooms?.Quadrupla || 0) - reservedTotals.Quadrupla,
+      Number(settings.totalRooms?.Quadrupla || 0) -
+        projectedReservedTotals.Quadrupla,
       0,
     ),
   };
@@ -222,9 +282,20 @@ export default function AdminWebRoomsScreen() {
           Number(assignment?.quantities?.Doppia || 0) +
           Number(assignment?.quantities?.Tripla || 0) +
           Number(assignment?.quantities?.Quadrupla || 0);
+        const completed = getCompleted(teacher.username);
+        const totalPending = roomTypes.reduce(
+          (sum, type) =>
+            sum +
+            Math.max(
+              Number(assignment?.quantities?.[type] || 0) - completed[type],
+              0,
+            ),
+          0,
+        );
 
         if (filter === "assigned" && totalAssigned === 0) return false;
         if (filter === "unassigned" && totalAssigned > 0) return false;
+        if (filter === "pending" && totalPending === 0) return false;
 
         if (!q) return true;
 
@@ -241,21 +312,36 @@ export default function AdminWebRoomsScreen() {
       .sort((a, b) =>
         getTeacherFullName(a).localeCompare(getTeacherFullName(b)),
       );
-  }, [teachers, assignments, search, filter]);
+  }, [
+    teachers,
+    search,
+    filter,
+    getAssignmentForTeacher,
+    getCompleted,
+    getTeacherFullName,
+  ]);
 
   const selectTeacher = (teacher: TeacherUser) => {
     setSelectedTeacher(teacher);
 
     const assignment = getAssignmentForTeacher(teacher.username);
 
-    setAssignDoppie(String(assignment?.quantities?.Doppia || ""));
-    setAssignTriple(String(assignment?.quantities?.Tripla || ""));
-    setAssignQuadruple(String(assignment?.quantities?.Quadrupla || ""));
-  };
+    const completed = getCompleted(teacher.username);
 
-  const toNumber = (value: string) => {
-    const n = Number(value || 0);
-    return Number.isNaN(n) ? 0 : n;
+    setAssignDoppie(
+      String(Math.max(Number(assignment?.quantities?.Doppia || 0), completed.Doppia)),
+    );
+    setAssignTriple(
+      String(Math.max(Number(assignment?.quantities?.Tripla || 0), completed.Tripla)),
+    );
+    setAssignQuadruple(
+      String(
+        Math.max(
+          Number(assignment?.quantities?.Quadrupla || 0),
+          completed.Quadrupla,
+        ),
+      ),
+    );
   };
 
   const saveAssignment = async () => {
@@ -348,12 +434,14 @@ export default function AdminWebRoomsScreen() {
     }
   };
 
-  const assignedTotalForTeacher = (teacher: TeacherUser) => {
-    const assignment = getAssignmentForTeacher(teacher.username);
-    return roomTypes.reduce(
-      (sum, type) => sum + Number(assignment?.quantities?.[type] || 0),
-      0,
-    );
+  const setDraftQuantity = (type: RoomType, nextValue: number) => {
+    const completed = getCompleted(selectedTeacher?.username)[type];
+    const safeValue = Math.max(Math.round(nextValue), completed, 0);
+    const value = String(safeValue);
+
+    if (type === "Doppia") setAssignDoppie(value);
+    if (type === "Tripla") setAssignTriple(value);
+    if (type === "Quadrupla") setAssignQuadruple(value);
   };
 
   return (
@@ -411,6 +499,7 @@ export default function AdminWebRoomsScreen() {
             ["all", "Tutti"],
             ["assigned", "Con camere"],
             ["unassigned", "Senza camere"],
+            ["pending", "Da completare"],
           ] as const).map(([value, label]) => {
             const active = filter === value;
 
@@ -450,6 +539,35 @@ export default function AdminWebRoomsScreen() {
             const assignment = getAssignmentForTeacher(teacher.username);
             const completed = getCompleted(teacher.username);
             const selected = selectedTeacher?.id === teacher.id;
+            const quantities = roomTypes.reduce(
+              (acc, type) => {
+                acc[type] =
+                  selected && selectedTeacher
+                    ? draftQuantities[type]
+                    : Number(assignment?.quantities?.[type] || 0);
+                return acc;
+              },
+              {} as Record<RoomType, number>,
+            );
+            const assignedTotal = roomTypes.reduce(
+              (sum, type) => sum + quantities[type],
+              0,
+            );
+            const completedTotal = roomTypes.reduce(
+              (sum, type) => sum + completed[type],
+              0,
+            );
+            const pending = roomTypes.reduce(
+              (acc, type) => {
+                acc[type] = Math.max(quantities[type] - completed[type], 0);
+                return acc;
+              },
+              {} as Record<RoomType, number>,
+            );
+            const pendingTotal = roomTypes.reduce(
+              (sum, type) => sum + pending[type],
+              0,
+            );
 
             return (
               <TouchableOpacity
@@ -481,10 +599,42 @@ export default function AdminWebRoomsScreen() {
                     @{teacher.username} • {teacher.danceSchool || "Scuola non inserita"}
                   </Text>
 
-                  <Text style={[styles.teacherMeta, { color: colors.primary }]}>
-                    {assignedTotalForTeacher(teacher)} assegnate •{" "}
-                    {completed.Doppia + completed.Tripla + completed.Quadrupla} completate
-                  </Text>
+                  <View style={styles.teacherTotalsRow}>
+                    <Text style={[styles.teacherMeta, { color: colors.primary }]}>
+                      {assignedTotal} assegnate
+                    </Text>
+                    <Text style={[styles.teacherMeta, { color: colors.success }]}>
+                      {completedTotal} completate
+                    </Text>
+                    <Text style={[styles.teacherMeta, { color: colors.warning }]}>
+                      {pendingTotal} da completare
+                    </Text>
+                  </View>
+
+                  {pendingTotal === 0 && assignedTotal > 0 ? (
+                    <View
+                      style={[
+                        styles.completeBadge,
+                        { backgroundColor: `${colors.success}16` },
+                      ]}
+                    >
+                      <Ionicons
+                        name="checkmark-circle-outline"
+                        size={12}
+                        color={colors.success}
+                      />
+                      <Text
+                        style={[styles.completeBadgeText, { color: colors.success }]}
+                      >
+                        Tutto completato
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={[styles.teacherBreakdown, { color: colors.secondary }]}>
+                      Da completare: D {pending.Doppia} · T {pending.Tripla} · Q{" "}
+                      {pending.Quadrupla}
+                    </Text>
+                  )}
                 </View>
 
                 <Ionicons
@@ -553,7 +703,7 @@ export default function AdminWebRoomsScreen() {
 
                 <View>
                   <Text style={[styles.statValue, { color: colors.primary }]}>
-                    {reservedTotals[type]}
+                    {projectedReservedTotals[type]}
                   </Text>
                   <Text style={[styles.statCaption, { color: colors.secondary }]}>
                     riservate
@@ -562,7 +712,7 @@ export default function AdminWebRoomsScreen() {
 
                 <View>
                   <Text style={[styles.statValue, { color: colors.success }]}>
-                    {remainingTotals[type]}
+                    {projectedRemainingTotals[type]}
                   </Text>
                   <Text style={[styles.statCaption, { color: colors.secondary }]}>
                     libere
@@ -609,7 +759,12 @@ export default function AdminWebRoomsScreen() {
               },
             ]}
           >
-            <View style={styles.editorHeader}>
+            <View
+              style={[
+                styles.editorHeader,
+                isMobile && styles.editorHeaderMobile,
+              ]}
+            >
               <View>
                 <Text style={[styles.editorEyebrow, { color: colors.primary }]}>
                   ASSEGNAZIONE CAMERE
@@ -622,6 +777,25 @@ export default function AdminWebRoomsScreen() {
                   {selectedTeacher.danceSchool || "Scuola non inserita"}
                 </Text>
               </View>
+
+              {hasUnsavedChanges ? (
+                <View
+                  style={[
+                    styles.unsavedBadge,
+                    {
+                      backgroundColor: `${colors.warning}16`,
+                      borderColor: `${colors.warning}55`,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[styles.unsavedDot, { backgroundColor: colors.warning }]}
+                  />
+                  <Text style={[styles.unsavedText, { color: colors.warning }]}>
+                    Modifiche non salvate
+                  </Text>
+                </View>
+              ) : null}
             </View>
 
             <View style={[styles.roomEditorGrid, isMobile && styles.roomEditorGridMobile]}>
@@ -633,14 +807,11 @@ export default function AdminWebRoomsScreen() {
                       ? assignTriple
                       : assignQuadruple;
 
-                const setValue =
-                  type === "Doppia"
-                    ? setAssignDoppie
-                    : type === "Tripla"
-                      ? setAssignTriple
-                      : setAssignQuadruple;
-
                 const completed = getCompleted(selectedTeacher.username)[type];
+                const assigned = toNumber(value);
+                const pending = Math.max(assigned - completed, 0);
+                const canDecrease = assigned > completed;
+                const canIncrease = projectedRemainingTotals[type] > 0;
 
                 return (
                   <View
@@ -658,33 +829,120 @@ export default function AdminWebRoomsScreen() {
                       <Text style={[styles.roomEditorTitle, { color: colors.text }]}>
                         {type}
                       </Text>
-                      <Text style={[styles.completedPill, { color: colors.success }]}>
-                        {completed} completate
-                      </Text>
+                    </View>
+
+                    <View style={styles.roomMetrics}>
+                      <View style={styles.roomMetricItem}>
+                        <Text style={[styles.roomMetricValue, { color: colors.text }]}>
+                          {assigned}
+                        </Text>
+                        <Text style={[styles.roomMetricLabel, { color: colors.secondary }]}>
+                          assegnate
+                        </Text>
+                      </View>
+                      <View style={styles.roomMetricItem}>
+                        <Text style={[styles.roomMetricValue, { color: colors.success }]}>
+                          {completed}
+                        </Text>
+                        <Text style={[styles.roomMetricLabel, { color: colors.secondary }]}>
+                          completate
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.pendingMetric,
+                          {
+                            backgroundColor: `${
+                              pending === 0 ? colors.success : colors.warning
+                            }14`,
+                            borderColor: `${
+                              pending === 0 ? colors.success : colors.warning
+                            }42`,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.pendingMetricValue,
+                            {
+                              color:
+                                pending === 0
+                                  ? colors.success
+                                  : colors.warning,
+                            },
+                          ]}
+                        >
+                          {pending}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.roomMetricLabel,
+                            {
+                              color:
+                                pending === 0
+                                  ? colors.success
+                                  : colors.warning,
+                            },
+                          ]}
+                        >
+                          {pending === 0 ? "Tutto completato" : "da completare"}
+                        </Text>
+                      </View>
                     </View>
 
                     <Text style={[styles.inputLabel, { color: colors.secondary }]}>
-                      Camere assegnate
+                      Modifica assegnazione
                     </Text>
 
-                    <TextInput
+                    <View
                       style={[
-                        styles.quantityInput,
-                        {
-                          color: colors.text,
-                          borderColor: colors.border,
-                          backgroundColor: colors.card,
-                        },
+                        styles.stepper,
+                        { borderColor: colors.border, backgroundColor: colors.card },
                       ]}
-                      value={value}
-                      onChangeText={setValue}
-                      keyboardType="numeric"
-                      placeholder="0"
-                      placeholderTextColor={colors.secondary}
-                    />
+                    >
+                      <TouchableOpacity
+                        accessibilityLabel={`Riduci camere ${type}`}
+                        accessibilityRole="button"
+                        disabled={!canDecrease}
+                        style={[
+                          styles.stepperButton,
+                          { backgroundColor: `${colors.primary}12` },
+                          !canDecrease && styles.stepperButtonDisabled,
+                        ]}
+                        onPress={() => setDraftQuantity(type, assigned - 1)}
+                      >
+                        <Ionicons
+                          name="remove-outline"
+                          size={22}
+                          color={canDecrease ? colors.primary : colors.muted}
+                        />
+                      </TouchableOpacity>
+
+                      <Text style={[styles.stepperValue, { color: colors.text }]}>
+                        {assigned}
+                      </Text>
+
+                      <TouchableOpacity
+                        accessibilityLabel={`Aumenta camere ${type}`}
+                        accessibilityRole="button"
+                        disabled={!canIncrease}
+                        style={[
+                          styles.stepperButton,
+                          { backgroundColor: `${colors.primary}12` },
+                          !canIncrease && styles.stepperButtonDisabled,
+                        ]}
+                        onPress={() => setDraftQuantity(type, assigned + 1)}
+                      >
+                        <Ionicons
+                          name="add-outline"
+                          size={22}
+                          color={canIncrease ? colors.primary : colors.muted}
+                        />
+                      </TouchableOpacity>
+                    </View>
 
                     <Text style={[styles.availableHint, { color: colors.secondary }]}>
-                      Disponibili globalmente: {remainingTotals[type]}
+                      Disponibili globalmente: {projectedRemainingTotals[type]}
                     </Text>
                   </View>
                 );
@@ -807,7 +1065,7 @@ const styles = StyleSheet.create({
   },
 
   teacherCard: {
-    minHeight: 68,
+    minHeight: 92,
     borderRadius: 16,
     borderWidth: 1,
     padding: 10,
@@ -839,7 +1097,37 @@ const styles = StyleSheet.create({
   teacherMeta: {
     fontSize: 9,
     fontWeight: "900",
+  },
+
+  teacherTotalsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    columnGap: 8,
+    rowGap: 2,
+    marginTop: 6,
+  },
+
+  teacherBreakdown: {
+    fontSize: 8,
+    lineHeight: 12,
+    fontWeight: "800",
+    marginTop: 4,
+  },
+
+  completeBadge: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
     marginTop: 5,
+  },
+
+  completeBadgeText: {
+    fontSize: 8,
+    fontWeight: "900",
+    marginLeft: 3,
   },
 
   main: {
@@ -979,7 +1267,36 @@ const styles = StyleSheet.create({
   },
 
   editorHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
     marginBottom: 18,
+  },
+
+  editorHeaderMobile: {
+    flexDirection: "column",
+  },
+
+  unsavedBadge: {
+    borderWidth: 1,
+    borderRadius: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+
+  unsavedDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+  },
+
+  unsavedText: {
+    fontSize: 9,
+    fontWeight: "900",
+    marginLeft: 6,
   },
 
   editorEyebrow: {
@@ -1026,9 +1343,47 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
 
-  completedPill: {
-    fontSize: 8,
+  roomMetrics: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 6,
+    marginBottom: 16,
+  },
+
+  roomMetricItem: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    minWidth: 0,
+    justifyContent: "center",
+  },
+
+  pendingMetric: {
+    flexGrow: 1.25,
+    flexShrink: 1,
+    flexBasis: 0,
+    minWidth: 0,
+    borderWidth: 1,
+    borderRadius: 11,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+  },
+
+  roomMetricValue: {
+    fontSize: 20,
     fontWeight: "900",
+  },
+
+  pendingMetricValue: {
+    fontSize: 22,
+    fontWeight: "900",
+  },
+
+  roomMetricLabel: {
+    fontSize: 7,
+    lineHeight: 10,
+    fontWeight: "900",
+    marginTop: 2,
   },
 
   inputLabel: {
@@ -1037,12 +1392,32 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
 
-  quantityInput: {
-    height: 50,
+  stepper: {
+    minHeight: 52,
     borderWidth: 1,
     borderRadius: 14,
-    paddingHorizontal: 13,
-    fontSize: 18,
+    padding: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  stepperButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  stepperButtonDisabled: {
+    opacity: 0.38,
+  },
+
+  stepperValue: {
+    minWidth: 44,
+    textAlign: "center",
+    fontSize: 19,
     fontWeight: "900",
   },
 
