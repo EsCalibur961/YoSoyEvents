@@ -12,7 +12,7 @@ const MENU = [
   ["Dashboard", "grid-outline", "/admin-web"], ["Eventi e artisti", "calendar-outline", "/admin-web/events"],
   ["Gestione stanze", "bed-outline", "/admin-web/rooms"], ["Maestri", "people-outline", "/admin-web/teachers"],
   ["Stato maestri", "radio-outline", "/admin-web/teacher-status"],
-  ["Camere maestri", "business-outline", "/admin-web/teacher-rooms"], ["Pagamenti", "wallet-outline", "/admin-web/payments"],
+  ["Camere Allievi", "business-outline", "/admin-web/teacher-rooms"], ["Pagamenti", "wallet-outline", "/admin-web/payments"],
   ["Monitoraggio", "pulse-outline", "/admin-web/monitoring"], ["Richieste", "git-pull-request-outline", "/admin-web/requests"],
   ["Notifiche", "notifications-outline", "/admin-web/notifications"],
   ["Impostazioni", "settings-outline", "/admin-web/settings"],

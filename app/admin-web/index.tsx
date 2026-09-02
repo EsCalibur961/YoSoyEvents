@@ -70,7 +70,7 @@ const QUICK = [
   ["Eventi e artisti", "calendar-outline", "/admin-web/events"],
   ["Gestione stanze", "bed-outline", "/admin-web/rooms"],
   ["Maestri", "people-outline", "/admin-web/teachers"],
-  ["Camere maestri", "business-outline", "/admin-web/teacher-rooms"],
+  ["Camere Allievi", "business-outline", "/admin-web/teacher-rooms"],
   ["Pagamenti", "wallet-outline", "/admin-web/payments"],
   ["Monitoraggio", "pulse-outline", "/admin-web/monitoring"],
   ["Richieste", "git-pull-request-outline", "/admin-web/requests"],
