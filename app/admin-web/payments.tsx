@@ -23,6 +23,7 @@ import { useFeedback } from "../../contexts/FeedbackContext";
 import { db } from "../../firebase";
 import { ProfileAvatar } from "../../components/ProfileAvatar";
 import { getTeacherProfileImage } from "../../utils/profileImages";
+import { getGuestFinalPrice } from "../../utils/packPricing.mjs";
 
 type RoomType = "Doppia" | "Tripla" | "Quadrupla";
 
@@ -67,7 +68,8 @@ export default function AdminWebPaymentsScreen() {
   const { colors, isDark } = useTheme();
   const { width } = useWindowDimensions();
   const { success, error, warning } = useFeedback();
-  const styles = createStyles(colors, isDark, width < 700);
+  const isMobile = width < 700;
+  const styles = createStyles(colors, isDark, isMobile);
   const [teachers, setTeachers] = useState<TeacherUser[]>([]);
   const [roomsData, setRoomsData] = useState<RoomData[]>([]);
   const [privatePayments, setPrivatePayments] = useState<
@@ -198,9 +200,7 @@ export default function AdminWebPaymentsScreen() {
   };
 
   const getGuestPrice = (guest: Guest) => {
-    const price = Number(guest.selectedPackPrice || 0);
-
-    return Number.isNaN(price) ? 0 : price;
+    return getGuestFinalPrice(guest);
   };
 
   const completedGuests = teacherRooms.flatMap((room) =>

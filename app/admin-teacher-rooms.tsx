@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import { db } from "../firebase";
+import { getGuestFinalPrice } from "../utils/packPricing.mjs";
 
 type RoomType = "Doppia" | "Tripla" | "Quadrupla";
 
@@ -103,11 +104,6 @@ export default function AdminTeacherRoomsScreen() {
 
   const safeText = (value: any) => String(value ?? "").trim();
 
-  const safeNumber = (value: any) => {
-    const number = Number(value || 0);
-    return Number.isNaN(number) ? 0 : number;
-  };
-
   const normalizeGuest = (guest: any): Guest => ({
     firstName: safeText(guest?.firstName),
     lastName: safeText(guest?.lastName),
@@ -179,7 +175,7 @@ export default function AdminTeacherRoomsScreen() {
   };
 
   const getGuestPrice = (guest: Guest) => {
-    return safeNumber(guest.selectedPackPrice);
+    return getGuestFinalPrice(guest);
   };
 
   const getRoomTotal = (room: RoomData) => {

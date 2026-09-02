@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { db } from "../firebase";
+import { getGuestFinalPrice } from "../utils/packPricing.mjs";
 import { useTheme } from "../contexts/ThemeContext";
 
 type RoomType = "Doppia" | "Tripla" | "Quadrupla";
@@ -211,7 +212,7 @@ export default function TeacherRoomListScreen() {
       (room.guests || []).reduce((guestSum, guest) => {
         if (!isGuestComplete(guest)) return guestSum;
 
-        return guestSum + Number(guest.selectedPackPrice || 0);
+        return guestSum + getGuestFinalPrice(guest);
       }, 0)
     );
   }, 0);

@@ -6,6 +6,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -26,6 +27,7 @@ import {
 import { useTheme } from "../../../contexts/ThemeContext";
 import { useFeedback } from "../../../contexts/FeedbackContext";
 import { db } from "../../../firebase";
+import { repriceGuestForRoom } from "../../../utils/packPricing.mjs";
 
 type AppNotification = {
   id: string;
@@ -380,6 +382,15 @@ export default function TeacherWebNotificationsScreen() {
     return { data, guests };
   };
 
+  const priceGuestForRoom = async (guest: Guest, roomType?: string) => {
+    const eventsSnapshot = await getDocs(collection(db, "events"));
+    const packs = eventsSnapshot.docs.flatMap((item) => {
+      const data = item.data();
+      return Array.isArray(data.packs) ? data.packs : [];
+    });
+    return repriceGuestForRoom(guest, packs, roomType || "");
+  };
+
   const applyGuestChange = async (request: RoomChangeRequest) => {
     if (!request.roomId) {
       throw new Error("Camera non trovata nella richiesta.");
@@ -440,11 +451,15 @@ export default function TeacherWebNotificationsScreen() {
               ? [...oldRequestedGuest.selectedStayDates]
               : [];
 
+      const pricedGuest = await priceGuestForRoom(
+        normalizeGuest(requestedGuest),
+        roomData.roomType,
+      );
       guests[guestIndex] = {
         ...currentGuest,
-        selectedPackId: requestedGuest.selectedPackId || "",
-        selectedPackLetter: requestedGuest.selectedPackLetter || "",
-        selectedPackPrice: requestedGuest.selectedPackPrice || "",
+        selectedPackId: pricedGuest.selectedPackId || "",
+        selectedPackLetter: pricedGuest.selectedPackLetter || "",
+        selectedPackPrice: pricedGuest.selectedPackPrice || "",
         selectedStayDates: preservedStayDates,
       };
     } else if (request.requestType === "guest_stay_dates_updated") {
@@ -508,7 +523,7 @@ export default function TeacherWebNotificationsScreen() {
         ? request.newData.toGuestIndex
         : (request.newData?.toGuestPosition || request.guestPosition || 1) - 1,
     );
-    const guest = normalizeGuest(request.newData?.guest || request.oldData?.guest);
+    let guest = normalizeGuest(request.newData?.guest || request.oldData?.guest);
 
     if (!fromRoomId || !toRoomId) {
       throw new Error("Dati spostamento incompleti.");
@@ -521,6 +536,7 @@ export default function TeacherWebNotificationsScreen() {
     const fromRoom = await readRoomGuests(fromRoomId);
 
     if (fromRoomId === toRoomId) {
+      guest = await priceGuestForRoom(guest, fromRoom.data.roomType);
       const guests = [...fromRoom.guests];
       while (guests.length <= Math.max(fromIndex, toIndex)) guests.push(emptyGuest());
       guests[fromIndex] = emptyGuest();
@@ -539,6 +555,7 @@ export default function TeacherWebNotificationsScreen() {
     }
 
     const toRoom = await readRoomGuests(toRoomId);
+    guest = await priceGuestForRoom(guest, toRoom.data.roomType || request.roomType);
     const fromGuests = [...fromRoom.guests];
     const toGuests = [...toRoom.guests];
 

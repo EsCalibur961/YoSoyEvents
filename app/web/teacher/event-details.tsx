@@ -7,6 +7,7 @@ import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimen
 
 import { useTheme } from "../../../contexts/ThemeContext";
 import { db } from "../../../firebase";
+import { instagramUrl } from "../../../utils/safeUrls";
 
 type EventPack = { id: string; letter?: string; price?: string; description?: string; supplementDoppia?: string; supplementTripla?: string; supplementQuadrupla?: string };
 type EventItem = { id: string; title?: string; description?: string; startDate?: string; endDate?: string; location?: string; image?: string; packs?: EventPack[]; allowStayDateSelection?: boolean };
@@ -54,8 +55,8 @@ export default function TeacherEventDetailsScreen() {
   const visibleArtists = useMemo(() => artists.filter((artist) => artist.isVisible !== false).sort((a, b) => (a.name || "").localeCompare(b.name || "")), [artists]);
   const openInstagram = async (instagram?: string) => {
     if (!instagram?.trim()) return;
-    const clean = instagram.replace("@", "").trim();
-    await Linking.openURL(clean.startsWith("http") ? clean : `https://instagram.com/${clean}`);
+    const url = instagramUrl(instagram);
+    if (url) await Linking.openURL(url);
   };
 
   if (loading || !event) return <View style={[styles.center, { backgroundColor: colors.background }]}><Ionicons name={loading ? "hourglass-outline" : "calendar-outline"} size={34} color={colors.primary} /><Text style={[styles.centerText, { color: colors.text }]}>{loading ? "Caricamento evento..." : "Evento non disponibile"}</Text><TouchableOpacity onPress={() => router.replace("/web/teacher")}><Text style={[styles.backLink, { color: colors.primary }]}>Torna alla Home Maestro</Text></TouchableOpacity></View>;

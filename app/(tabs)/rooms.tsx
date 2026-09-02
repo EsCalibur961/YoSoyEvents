@@ -29,6 +29,13 @@ import { useTheme } from "../../contexts/ThemeContext";
 import { useFeedback } from "../../contexts/FeedbackContext";
 import { db } from "../../firebase";
 import { sendPushNotificationsToRoleAsync } from "../../services/pushNotifications";
+import {
+  applyPackSelectionPrice,
+  findSelectedPack,
+  getGuestFinalPrice,
+  getPackSupplement,
+  repriceGuestForRoom,
+} from "../../utils/packPricing.mjs";
 
 type RoomType = "Doppia" | "Tripla" | "Quadrupla";
 
@@ -562,31 +569,12 @@ export default function RoomsScreen() {
   };
 
   const getSupplementForRoom = (pack: EventPack, roomType: RoomType) => {
-    if (roomType === "Doppia") return Number(pack.supplementDoppia || 0);
-    if (roomType === "Tripla") return Number(pack.supplementTripla || 0);
-    if (roomType === "Quadrupla") return Number(pack.supplementQuadrupla || 0);
-
-    return 0;
-  };
-
-  const getPackTotalForRoom = (pack: EventPack, roomType: RoomType) => {
-    const basePrice = Number(pack.price || 0);
-    const supplement = getSupplementForRoom(pack, roomType);
-
-    return basePrice + supplement;
+    return getPackSupplement(pack, roomType);
   };
 
   const getGuestTotal = (room: RoomData, guest: Guest) => {
-    const pack = availablePacks.find(
-      (item) => item.id === guest.selectedPackId,
-    );
-
-    if (!pack) {
-      const fallbackPrice = Number(guest.selectedPackPrice || 0);
-      return Number.isNaN(fallbackPrice) ? 0 : fallbackPrice;
-    }
-
-    return getPackTotalForRoom(pack, room.roomType);
+    const pack = findSelectedPack(availablePacks, guest);
+    return getGuestFinalPrice(guest, pack, room.roomType);
   };
 
   const getRoomPackTotal = (room: RoomData) => {
@@ -863,14 +851,20 @@ export default function RoomsScreen() {
   };
 
   const saveRoomToFirebase = async (room: RoomData, markAsSaved = false) => {
+    const pricedRoom = {
+      ...room,
+      guests: room.guests.map((guest) =>
+        repriceGuestForRoom(guest, availablePacks, room.roomType),
+      ),
+    };
     await setDoc(
       doc(db, "roomsData", room.id),
       {
-        teacherUsername: room.teacherUsername,
-        roomType: room.roomType,
-        roomIndex: room.roomIndex,
-        customName: room.customName || "",
-        guests: room.guests,
+        teacherUsername: pricedRoom.teacherUsername,
+        roomType: pricedRoom.roomType,
+        roomIndex: pricedRoom.roomIndex,
+        customName: pricedRoom.customName || "",
+        guests: pricedRoom.guests,
         ...(markAsSaved
           ? { isSaved: true, paymentVisible: true, savedAt: serverTimestamp() }
           : isSavedRoom(room)
@@ -1060,14 +1054,11 @@ export default function RoomsScreen() {
 
     const alreadySelected = currentGuest.selectedPackId === pack.id;
 
-    updatedGuests[guestIndex] = {
-      ...currentGuest,
-      selectedPackId: alreadySelected ? "" : pack.id || "",
-      selectedPackLetter: alreadySelected ? "" : pack.letter || "",
-      selectedPackPrice: alreadySelected
-        ? ""
-        : String(Number(pack.price || 0)),
-    };
+    updatedGuests[guestIndex] = applyPackSelectionPrice(
+      currentGuest,
+      alreadySelected ? null : pack,
+      room.roomType,
+    );
 
     const originalForPack = getOriginalRoom(room.id);
     const originalPackId =
@@ -1203,7 +1194,9 @@ export default function RoomsScreen() {
           fromGuestPosition: movingGuest.fromGuestIndex + 1,
         },
         newData: {
-          guest: formatGuestForRequest(movingGuest.guest),
+          guest: formatGuestForRequest(
+            repriceGuestForRoom(movingGuest.guest, availablePacks, toRoom.roomType),
+          ),
           toRoomId: toRoom.id,
           toRoomLabel: getRoomLabel(toRoom),
           toGuestIndex,

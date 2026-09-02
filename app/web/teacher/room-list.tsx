@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { db } from "../../../firebase";
+import { getGuestFinalPrice } from "../../../utils/packPricing.mjs";
 import { useTheme } from "../../../contexts/ThemeContext";
 
 type RoomType = "Doppia" | "Tripla" | "Quadrupla";
@@ -50,7 +51,8 @@ const roomTypes: RoomType[] = ["Doppia", "Tripla", "Quadrupla"];
 export default function TeacherWebRoomListScreen() {
   const { colors, isDark } = useTheme();
   const { width } = useWindowDimensions();
-  const styles = createStyles(colors, isDark, width < 700);
+  const isMobile = width < 700;
+  const styles = createStyles(colors, isDark, isMobile);
   const [role, setRole] = useState<string | null>(null);
   const [teacherUsername, setTeacherUsername] = useState<string | null>(null);
 
@@ -201,7 +203,7 @@ export default function TeacherWebRoomListScreen() {
       (room.guests || []).reduce((guestSum, guest) => {
         if (!isGuestComplete(guest)) return guestSum;
 
-        return guestSum + Number(guest.selectedPackPrice || 0);
+        return guestSum + getGuestFinalPrice(guest);
       }, 0)
     );
   }, 0);

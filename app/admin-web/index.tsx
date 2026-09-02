@@ -14,6 +14,7 @@ import {
 
 import { useTheme } from "../../contexts/ThemeContext";
 import { db } from "../../firebase";
+import { getGuestFinalPrice } from "../../utils/packPricing.mjs";
 
 type EventPack = {
   id: string;
@@ -226,8 +227,7 @@ export default function AdminWebScreen() {
   const totalAmount = useMemo(
     () =>
       completedGuests.reduce((sum, guest) => {
-        const price = Number(guest.selectedPackPrice || 0);
-        return sum + (Number.isNaN(price) ? 0 : price);
+        return sum + getGuestFinalPrice(guest);
       }, 0),
     [completedGuests],
   );

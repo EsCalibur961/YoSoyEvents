@@ -13,7 +13,7 @@ async function getTokens(notification) {
 
   if (notification.targetUsername) {
     q = q.where("username", "==", notification.targetUsername);
-  } else if (notification.targetRole) {
+  } else if (notification.targetRole && notification.targetRole !== "all") {
     q = q.where("role", "==", notification.targetRole);
   }
 
@@ -54,8 +54,11 @@ async function sendExpo(tokens, title, body, data) {
       body: JSON.stringify(chunk),
     });
 
-    const json = await res.json();
-    logger.info("Expo push result", json);
+    if (!res.ok) {
+      logger.error("Invio Expo push non riuscito", { status: res.status });
+      continue;
+    }
+    logger.info("Expo push inviate", { count: chunk.length });
   }
 }
 
@@ -71,8 +74,8 @@ exports.sendPushOnNotificationCreated = onDocumentCreated(
     const n = snap.data() || {};
     const notificationId = event.params.notificationId;
 
-    const title = n.title || "YoSoy Events";
-    const body = n.message || "";
+    const title = String(n.title || "YoSoy Events").trim().slice(0, 120);
+    const body = String(n.message || "").trim().slice(0, 500);
     const tokens = await getTokens(n);
 
     await sendExpo(tokens, title, body, {

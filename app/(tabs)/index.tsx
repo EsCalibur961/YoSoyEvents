@@ -13,6 +13,7 @@ import {
 import { Image } from "expo-image";
 import { db } from "../../firebase";
 import { useTheme } from "../../contexts/ThemeContext";
+import { getGuestFinalPrice } from "../../utils/packPricing.mjs";
 
 type EventPack = {
   id: string;
@@ -327,9 +328,7 @@ export default function HomeScreen() {
         room.guests.reduce((guestSum, guest) => {
           if (!isGuestComplete(guest)) return guestSum;
 
-          const price = Number(guest.selectedPackPrice || 0);
-
-          return guestSum + (Number.isNaN(price) ? 0 : price);
+          return guestSum + getGuestFinalPrice(guest);
         }, 0)
       );
     }, 0);
