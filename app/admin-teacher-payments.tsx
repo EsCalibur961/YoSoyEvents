@@ -22,6 +22,7 @@ import { useFeedback } from "../contexts/FeedbackContext";
 import { db } from "../firebase";
 import { ProfileAvatar } from "../components/ProfileAvatar";
 import { getTeacherProfileImage } from "../utils/profileImages";
+import { getGuestFinalPrice } from "../utils/packPricing.mjs";
 
 type RoomType = "Doppia" | "Tripla" | "Quadrupla";
 
@@ -196,9 +197,7 @@ export default function AdminTeacherPaymentsScreen() {
   };
 
   const getGuestPrice = (guest: Guest) => {
-    const price = Number(guest.selectedPackPrice || 0);
-
-    return Number.isNaN(price) ? 0 : price;
+    return getGuestFinalPrice(guest);
   };
 
   const completedGuests = teacherRooms.flatMap((room) =>

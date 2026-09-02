@@ -1,0 +1,55 @@
+rules_version = '2';
+
+// NON DISTRIBUIRE prima della migrazione a Firebase Auth descritta in
+// SECURITY_MIGRATION.md.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.role == 'admin';
+    }
+
+    function validProfileImage() {
+      return request.resource.size < 5 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+    }
+
+    match /teacherProfiles/{fileName} {
+      allow read: if signedIn();
+      allow create, update: if isAdmin() || (
+        signedIn() && request.auth.token.role == 'teacher' &&
+        fileName.matches(request.auth.token.teacherId + '-.*') &&
+        validProfileImage()
+      );
+      allow delete: if isAdmin() || (
+        signedIn() && request.auth.token.role == 'teacher' &&
+        fileName.matches(request.auth.token.teacherId + '-.*')
+      );
+    }
+
+    match /adminProfile/{fileName} {
+      allow read: if signedIn();
+      allow create, update: if isAdmin() && validProfileImage();
+      allow delete: if isAdmin();
+    }
+
+    match /events/{fileName} {
+      allow read: if signedIn();
+      allow create, update: if isAdmin() && validProfileImage();
+      allow delete: if isAdmin();
+    }
+
+    match /artists/{fileName} {
+      allow read: if signedIn();
+      allow create, update: if isAdmin() && validProfileImage();
+      allow delete: if isAdmin();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

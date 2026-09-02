@@ -16,6 +16,7 @@ import {
 
 import { useTheme } from "../../../contexts/ThemeContext";
 import { db } from "../../../firebase";
+import { instagramUrl } from "../../../utils/safeUrls";
 
 type EventPack = {
   id: string;
@@ -108,10 +109,8 @@ export default function TeacherWebExploreScreen() {
 
   const openInstagram = async (instagram?: string) => {
     if (!instagram?.trim()) return;
-    const clean = instagram.replace("@", "").trim();
-    const url = clean.startsWith("http")
-      ? clean
-      : `https://instagram.com/${clean}`;
+    const url = instagramUrl(instagram);
+    if (!url) return;
 
     try {
       await Linking.openURL(url);

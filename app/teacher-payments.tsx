@@ -17,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { db } from "../firebase";
+import { getGuestFinalPrice } from "../utils/packPricing.mjs";
 import { useTheme } from "../contexts/ThemeContext";
 import { useFeedback } from "../contexts/FeedbackContext";
 
@@ -206,8 +207,7 @@ export default function TeacherPaymentsScreen() {
     return (room.guests || []).reduce((sum, guest) => {
       if (!isGuestComplete(guest)) return sum;
 
-      const price = Number(guest.selectedPackPrice || 0);
-      return sum + (Number.isNaN(price) ? 0 : price);
+      return sum + getGuestFinalPrice(guest);
     }, 0);
   };
 

@@ -24,6 +24,11 @@ function isExpoPushToken(token: string) {
   );
 }
 
+function safePushText(value: unknown, fallback: string, maxLength: number) {
+  const text = String(value || fallback).trim();
+  return text.slice(0, maxLength);
+}
+
 export const sendPushOnNotificationCreated = onDocumentCreated(
   "notifications/{notificationId}",
   async (event) => {
@@ -34,15 +39,17 @@ export const sendPushOnNotificationCreated = onDocumentCreated(
       return;
     }
 
-    const title = String(notification.title || "YoSoy Events");
-    const body = String(notification.message || "Hai una nuova notifica.");
-    const type = String(notification.type || "system");
-    const eventId = String(notification.eventId || "");
+    const title = safePushText(notification.title, "YoSoy Events", 120);
+    const body = safePushText(notification.message, "Hai una nuova notifica.", 500);
+    const type = safePushText(notification.type, "system", 40);
+    const eventId = safePushText(notification.eventId, "", 160);
+    const targetRole = safePushText(notification.targetRole, "", 20);
+    const targetUsername = safePushText(notification.targetUsername, "", 100);
 
-    const tokensSnapshot = await db
-      .collection("pushTokens")
-      .where("active", "==", true)
-      .get();
+    let tokensQuery = db.collection("pushTokens").where("active", "==", true);
+    if (targetUsername) tokensQuery = tokensQuery.where("username", "==", targetUsername);
+    else if (targetRole && targetRole !== "all") tokensQuery = tokensQuery.where("role", "==", targetRole);
+    const tokensSnapshot = await tokensQuery.get();
 
     const tokens = Array.from(
       new Set(
@@ -84,8 +91,11 @@ export const sendPushOnNotificationCreated = onDocumentCreated(
         body: JSON.stringify(chunk),
       });
 
-      const result = await response.json();
-      logger.info("Expo push result", { result });
+      if (!response.ok) {
+        logger.error("Invio Expo push non riuscito", { status: response.status });
+        continue;
+      }
+      logger.info("Expo push inviate", { count: chunk.length });
     }
   },
 );

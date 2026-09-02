@@ -133,8 +133,12 @@ async function sendExpoPushMessages(tokens: string[], payload: PushPayload) {
       body: JSON.stringify(messages),
     });
 
-    const result = await response.json();
-    console.log("Push inviate:", result);
+    if (!response.ok) {
+      console.log("Invio push non riuscito:", response.status);
+      return;
+    }
+
+    console.log("Push inviate:", messages.length);
   } catch (error) {
     console.log("Errore invio push:", error);
   }

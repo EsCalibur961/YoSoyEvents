@@ -1285,7 +1285,7 @@ export default function TeacherActivityScreen() {
                           </Text>
 
                           <Text style={styles.liveGuestPack}>
-                            Pack {guest.selectedPackLetter || "-"} • prezzo base €{guest.selectedPackPrice || "0"}
+                            Pack {guest.selectedPackLetter || "-"} • prezzo finale €{guest.selectedPackPrice || "0"}
                           </Text>
 
                           <Text style={styles.liveGuestStayDates}>

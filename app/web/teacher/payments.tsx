@@ -18,6 +18,7 @@ import {
   View,
 } from "react-native";
 import { db } from "../../../firebase";
+import { getGuestFinalPrice } from "../../../utils/packPricing.mjs";
 import { useTheme } from "../../../contexts/ThemeContext";
 import { useFeedback } from "../../../contexts/FeedbackContext";
 
@@ -83,7 +84,8 @@ export default function TeacherWebPaymentsScreen() {
   const { colors, isDark } = useTheme();
   const { width } = useWindowDimensions();
   const { success, error, confirm } = useFeedback();
-  const styles = createStyles(colors, isDark, width < 700);
+  const isMobile = width < 700;
+  const styles = createStyles(colors, isDark, isMobile);
   const [teacherUsername, setTeacherUsername] = useState<string | null>(null);
   const [assignments, setAssignments] = useState<RoomAssignment[]>([]);
   const [savedRooms, setSavedRooms] = useState<SavedRoom[]>([]);
@@ -208,8 +210,7 @@ export default function TeacherWebPaymentsScreen() {
     return (room.guests || []).reduce((sum, guest) => {
       if (!isGuestComplete(guest)) return sum;
 
-      const price = Number(guest.selectedPackPrice || 0);
-      return sum + (Number.isNaN(price) ? 0 : price);
+      return sum + getGuestFinalPrice(guest);
     }, 0);
   };
 

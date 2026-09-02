@@ -1,0 +1,141 @@
+rules_version = '2';
+
+// NON DISTRIBUIRE prima della migrazione a Firebase Auth descritta in
+// SECURITY_MIGRATION.md. I client attuali usano una sessione locale e non
+// valorizzano request.auth.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.role == 'admin';
+    }
+
+    function isTeacher() {
+      return signedIn() && request.auth.token.role == 'teacher';
+    }
+
+    function isTeacherId(teacherId) {
+      return isTeacher() && request.auth.token.teacherId == teacherId;
+    }
+
+    function isTeacherUsername(username) {
+      return isTeacher() && request.auth.token.username == username;
+    }
+
+    match /settings/adminAuth {
+      allow read, write: if isAdmin();
+    }
+
+    match /settings/adminProfile {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /settings/rooms {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /events/{eventId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /artists/{artistId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /teachers/{teacherId} {
+      allow read: if isAdmin() || isTeacherId(teacherId);
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        isTeacherId(teacherId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'firstName', 'lastName', 'name', 'surname', 'school',
+          'profileImage', 'profileImageUrl', 'phone', 'instagram',
+          'isOnline', 'lastSeen', 'updatedAt'
+        ])
+      );
+    }
+
+    match /roomAssignments/{assignmentId} {
+      allow read: if isAdmin() ||
+        (isTeacher() && resource.data.teacherUsername == request.auth.token.username);
+      allow write: if isAdmin();
+    }
+
+    match /roomsData/{roomId} {
+      allow read: if isAdmin() ||
+        (isTeacher() && resource.data.teacherUsername == request.auth.token.username);
+      allow write: if isAdmin();
+    }
+
+    match /roomPayments/{paymentId} {
+      allow read: if isAdmin() ||
+        (isTeacher() && resource.data.teacherUsername == request.auth.token.username);
+      allow write: if isAdmin();
+    }
+
+    match /teacherPrivatePayments/{teacherId} {
+      allow read: if isAdmin() || isTeacherId(teacherId);
+      allow write: if isAdmin();
+    }
+
+    match /roomChangeRequests/{requestId} {
+      allow read: if isAdmin() ||
+        (isTeacher() && resource.data.teacherUsername == request.auth.token.username);
+      allow create: if isTeacher() &&
+        request.resource.data.teacherUsername == request.auth.token.username;
+      allow update, delete: if isAdmin();
+    }
+
+    match /teacherActivities/{activityId} {
+      allow read: if isAdmin() ||
+        (isTeacher() && resource.data.teacherUsername == request.auth.token.username);
+      allow create: if isTeacher() &&
+        request.resource.data.teacherUsername == request.auth.token.username;
+      allow update, delete: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAdmin() || (isTeacher() && (
+        resource.data.targetRole == 'all' ||
+        resource.data.targetRole == 'teacher' ||
+        resource.data.targetUsername == request.auth.token.username
+      ));
+      allow write: if isAdmin();
+    }
+
+    match /notificationReads/{readId} {
+      allow read, delete: if isAdmin() ||
+        (isTeacher() && resource.data.username == request.auth.token.username);
+      allow create, update: if isAdmin() ||
+        (isTeacher() && request.resource.data.username == request.auth.token.username);
+    }
+
+    match /notificationDeletes/{deleteId} {
+      allow read, delete: if isAdmin() ||
+        (isTeacher() && resource.data.username == request.auth.token.username);
+      allow create, update: if isAdmin() ||
+        (isTeacher() && request.resource.data.username == request.auth.token.username);
+    }
+
+    match /pushTokens/{tokenId} {
+      allow read: if isAdmin();
+      allow create, update: if signedIn() &&
+        request.resource.data.role == request.auth.token.role &&
+        request.resource.data.username == request.auth.token.username;
+      allow delete: if isAdmin() || (
+        isTeacher() && resource.data.username == request.auth.token.username
+      );
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
