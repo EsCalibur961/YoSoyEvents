@@ -1,50 +1,111 @@
-# Welcome to your Expo app 👋
+# YoSoy Events
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Private event management platform developed for **YoSoy**, designed to help event organizers and instructors manage attendees, accommodation, packages, payments and event operations from a single mobile application.
 
-## Get started
+## About the Project
 
-1. Install dependencies
+YoSoy Events is a real-world mobile application developed to simplify the management of bachata events.
 
-   ```bash
-   npm install
-   ```
+The platform provides separate experiences for **Administrators** and **Teachers**, allowing organizers to coordinate rooms, participants, packages, payments and modification requests while keeping instructors updated in real time.
 
-2. Start the app
+The application has been distributed and tested on iOS through **Apple TestFlight**.
 
-   ```bash
-   npx expo start
-   ```
+## Key Features
 
-In the output, you'll find options to open the app in a
+### Role-Based Access
+- Separate Admin and Teacher authentication
+- Persistent user sessions
+- Role-based permissions and interfaces
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### Room & Guest Management
+- Room creation and teacher assignment
+- Participant registration
+- Guest information management
+- Room completion validation
+- Room status monitoring
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### Event Packages
+- Configurable packages with prices and descriptions
+- Package assignment for each participant
+- Automatic payment totals based on selected packages
 
-## Get a fresh project
+### Payments
+- Payment status tracking
+- Paid and outstanding balance management
+- Administrative payment overview
 
-When you're ready, run:
+### Approval Workflows
+- Teachers can request changes to completed rooms
+- Administrators can approve or reject modification requests
+- Modification restrictions based on event deadlines
 
-```bash
-npm run reset-project
-```
+### Notifications
+- In-app notification system
+- Badge counters
+- Push notification support
+- Administrative activity monitoring
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Admin Dashboard
+- Participant overview
+- Room status monitoring
+- Payment summaries
+- Modification requests
+- User activity tracking
 
-## Learn more
+## Tech Stack
 
-To learn more about developing your project with Expo, look at the following resources:
+**Mobile**
+- React Native
+- Expo
+- TypeScript
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+**Backend & Cloud**
+- Firebase
+- Cloud Firestore
+- Firebase Authentication
+- Firebase Storage
+- Firebase Cloud Functions
 
-## Join the community
+**Development**
+- Git
+- GitHub
+- npm
+- EAS Build
+- Apple TestFlight
 
-Join our community of developers creating universal apps.
+## Architecture
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+The application follows a modular architecture with dedicated layers for:
+
+- UI components
+- Context-based state management
+- Custom hooks
+- Services
+- Firebase integrations
+- Security
+- Utility functions
+- Automated tests
+
+This structure helps keep business logic separated from the user interface and makes the application easier to maintain and extend.
+
+## My Role
+
+I designed and developed YoSoy Events as a **Freelance Full Stack / Mobile Developer**, working across the complete development lifecycle:
+
+- Requirements analysis
+- Application architecture
+- UI development
+- Business logic
+- Firebase data modelling
+- Authentication and authorization
+- Security improvements
+- Testing and debugging
+- Deployment and maintenance
+
+## Status
+
+Active project developed for a real event-management use case and continuously improved based on operational requirements.
+
+---
+
+**Developed by Gianluca Giarraffa**
